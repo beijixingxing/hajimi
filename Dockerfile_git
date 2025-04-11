@@ -1,14 +1,29 @@
+# Dockerfile_git
+
+# 使用官方 Python 3.11 slim 镜像作为基础镜像
 FROM python:3.11-slim
 
+# 设置容器内的工作目录为 /app
 WORKDIR /app
 
-COPY ./app /app/app
+# 将本地 app 目录的内容复制到容器的 /app 目录
+# 注意源路径后的斜杠 '/'，这表示复制目录内容而非目录本身
+COPY ./app/ /app/ # <--- 已修改此行
+
+# 将依赖文件复制到工作目录
 COPY requirements.txt .
+# 将版本文件复制到工作目录 (如果需要)
 COPY version.txt .
 
+# 安装 requirements.txt 中列出的 Python 依赖
+# --no-cache-dir 选项可以减少镜像大小
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 环境变量 (在 Hugging Face Spaces 中设置)
+# 环境变量注释：这些通常在运行时通过其他方式（如 docker run -e 或编排工具）注入
 # ENV GEMINI_API_KEYS=your_key_1,your_key_2,your_key_3
 
+# 定义容器启动时执行的命令
+# 使用 uvicorn 启动 FastAPI 应用 (app.main:app 指的是 /app/main.py 文件中的 app 对象)
+# --host 0.0.0.0 使服务可以从容器外部访问
+# --port 7860 指定服务监听的端口
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
