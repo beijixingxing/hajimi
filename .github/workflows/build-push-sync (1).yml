@@ -12,40 +12,45 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    # 条件：当推送到 main 分支 或 推送 v*.*.* 格式的 Git 标签时运行
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     permissions:
-      contents: read
-      packages: write # 需要写权限以推送镜像到 Docker Hub (虽然 action 是 login, 但元数据可能需要)
+      contents: read      # 需要读取代码
+      packages: write     # 需要写入权限以推送 Docker 镜像到 Docker Hub
 
     steps:
+      # 步骤 1: 检出代码
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # 获取完整历史记录
 
-      # --- 新增步骤：从 version.txt 读取并格式化版本号 ---
+      # 步骤 2: 从 version.txt 读取并格式化版本号
       - name: Read version from version.txt
-        id: read_version # 为步骤设置 ID 以便引用其输出
+        id: read_version # 设置步骤 ID
         run: |
-          # 读取文件内容 (例如 "version=0.1.1")
+          # 检查 version.txt 文件是否存在
+          if [ ! -f version.txt ]; then
+            echo "Error: version.txt not found!"
+            exit 1
+          fi
+          # 读取文件内容
           VERSION_LINE=$(cat version.txt)
-          # 检查文件内容是否符合预期格式
+          # 严格检查格式 version=X.Y.Z (允许后续字符)
           if [[ ! "$VERSION_LINE" =~ ^version=([0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
             echo "Error: version.txt format is incorrect. Expected 'version=X.Y.Z'."
             exit 1
           fi
-          # 使用 cut 提取 '=' 后面的部分 (0.1.1)
+          # 提取版本号 (X.Y.Z)
           VERSION_NUM=$(echo "$VERSION_LINE" | cut -d '=' -f 2)
-          # 在版本号前加上 'v'
+          # 格式化为 vX.Y.Z
           FORMATTED_VERSION="v$VERSION_NUM"
           echo "Read version number: $VERSION_NUM"
           echo "Formatted tag: $FORMATTED_VERSION"
-          # 使用 GITHUB_OUTPUT 设置输出变量 (新推荐方式)
+          # 设置输出变量 version_tag
           echo "version_tag=$FORMATTED_VERSION" >> $GITHUB_OUTPUT
 
-      # --- 注意：这个压缩步骤是否真的需要？ ---
-      # 如果你的 Dockerfile 仍然使用 COPY ./app/ /app/，这个 zip 文件可能不会被用到。
-      # 请确认 Dockerfile 是否已修改为处理 app.zip。
+      # 步骤 3: (可选) 压缩 app 文件夹 - 确认 Dockerfile 是否需要
       - name: Compress app files (Verify if needed by Dockerfile)
         run: |
           if [ -d "app" ]; then
@@ -58,64 +63,69 @@ jobs:
             echo "Warning: ./app directory not found, skipping compression."
           fi
 
+      # 步骤 4: 设置 Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      # 步骤 5: 登录到 Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # --- 修改步骤：使用读取到的版本号生成标签 ---
+      # 步骤 6: 生成 Docker 元数据 (标签和 Labels)
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: beijixingxing/hajimi
+          images: beijixingxing/hajimi # 你的 Docker Hub 镜像名
           tags: |
-            # 1. 使用从 version.txt 读取并格式化后的版本号作为主要标签
+            # 规则 1: 使用从 version.txt 读取的版本号 (例如 v0.1.1)
             type=raw,value=${{ steps.read_version.outputs.version_tag }}
 
-            # 2. (可选) 如果推送的是 Git 标签 (vX.Y.Z)，也生成对应的 semver 标签
-            #    这在你手动打 Git 标签发布时有用
-            type=semver,pattern={{version}} # 例如 v1.0.0 -> 1.0.0
-            type=semver,pattern={{major}}.{{minor}} # 例如 v1.0.0 -> 1.0
-            type=semver,pattern={{major}} # 例如 v1.0.0 -> 1
+            # 规则 2: (可选) 基于 Git 标签生成语义化版本标签 (需要推送 Git 标签 vX.Y.Z 才会生效)
+            # 只有当 github.ref 是一个 tag 时，这些才会生成有意义的标签
+            type=semver,pattern={{version}} # 例如 v1.2.3 -> 1.2.3
+            type=semver,pattern={{major}}.{{minor}} # 例如 v1.2.3 -> 1.2
+            type=semver,pattern={{major}} # 例如 v1.2.3 -> 1
 
-            # 3. 如果是推送到 main 分支，打上 latest 标签
+            # 规则 3: 如果事件是推送到 main 分支，则生成 'latest' 标签
+            # 这是确保 main 分支构建更新 latest 标签的关键！
             type=ref,event=branch,pattern=main,value=latest
 
-            # 4. 总是打上短 SHA 标签，方便调试
+            # 规则 4: 总是生成基于 Git commit SHA 的短标签 (例如 sha-3b64d12)
             type=sha,prefix=sha-,format=short
 
+      # 步骤 7: 构建并推送 Docker 镜像
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          # 确认 Dockerfile 文件名是否正确 (之前是 Dockerfile_git)
-          file: ./Dockerfile
-          # platform: linux/amd64,linux/arm64 # 如果需要多平台
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          # 缓存可以根据需要重新启用，例如 type=gha 或 type=inline
+          context: . # Docker 构建上下文是仓库根目录
+          file: ./Dockerfile # 指定 Dockerfile 的路径
+          # platform: linux/amd64,linux/arm64 # 如果需要构建多平台镜像，取消注释
+          push: true # 推送镜像到仓库
+          tags: ${{ steps.meta.outputs.tags }} # 使用上一步生成的标签
+          labels: ${{ steps.meta.outputs.labels }} # 使用上一步生成的 Labels
+          # 缓存配置 (可选, 可根据需要启用 gha 或 inline 缓存)
           # cache-from: type=gha
           # cache-to: type=gha,mode=max
 
+  # --- 同步 Fork 的任务 (保持不变) ---
   sync-fork:
     name: Sync Fork with Upstream
+    # 条件：仅当推送到 main 分支时运行
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # 需要写入权限以推送合并后的代码
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }} # 使用 GITHUB_TOKEN 进行认证
 
       - name: Set up Git
         run: |
@@ -132,6 +142,7 @@ jobs:
       - name: Merge upstream changes
         run: |
           git checkout main
+          # 使用 --no-edit 避免交互，-X theirs 策略在冲突时优先使用上游更改
           git merge --no-edit -X theirs upstream/main || (echo "Merge failed, check for conflicts manually" && exit 1)
 
       - name: Push changes to fork
