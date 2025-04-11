@@ -97,6 +97,10 @@ jobs:
             # 规则 4: 总是生成基于 Git commit SHA 的短标签 (例如 sha-3b64d12)
             type=sha,prefix=sha-,format=short
 
+      - name: Debug - Print generated tags
+        run: |
+          echo "Generated tags: ${{ steps.meta.outputs.tags }}"
+
       # 步骤 7: 构建并推送 Docker 镜像
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
@@ -148,5 +152,4 @@ jobs:
       - name: Push changes to fork
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: git push origin main
-
+        run: git push origin main    
