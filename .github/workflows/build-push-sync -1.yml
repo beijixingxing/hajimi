@@ -1,3 +1,4 @@
+# .github/workflows/build-push-sync.yml (建议的文件名)
 name: Build, Push Docker Image, and Sync Fork # 定义工作流的名称
 
 on: # 定义触发工作流的事件
@@ -13,6 +14,12 @@ jobs: # 定义工作流中包含的任务
     runs-on: ubuntu-latest # 指定任务运行在最新版的 Ubuntu 虚拟机上
     # 设置任务运行的条件：当推送是到 main 分支 或 推送的是以 'refs/tags/v' 开头的标签时
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    # 添加权限以允许删除 Actions 缓存
+    permissions:
+      contents: read
+      packages: write # 如果需要写入 GitHub Packages (Docker 镜像)
+      actions: write # 需要此权限来删除缓存
+
     steps: # 定义任务中的步骤序列
       - name: Checkout code # 定义步骤一：检出代码
         uses: actions/checkout@v3 # 使用官方的 checkout action 来获取仓库代码
@@ -22,6 +29,34 @@ jobs: # 定义工作流中包含的任务
       - name: Set up Docker Buildx # 定义步骤二：设置 Docker Buildx
         # 使用官方的 setup-buildx action，启用更高级的 Docker 构建功能，如多平台构建
         uses: docker/setup-buildx-action@v2
+
+      # --- 新增步骤：尝试清除之前的 Docker 构建缓存 ---
+      - name: Clear previous Docker build cache
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh extension install actions/gh-actions-cache || true
+          echo "Attempting to delete Docker build caches..."
+          # 列出缓存并尝试删除包含 'buildx-cache' 的键 (这是 buildx 常用的前缀之一)
+          CACHE_KEYS=$(gh actions-cache list --limit 100 | grep "buildx-cache" | cut -f 1)
+          if [ -n "$CACHE_KEYS" ]; then
+            echo "Found caches potentially related to buildx to delete:"
+            echo "$CACHE_KEYS"
+            echo "$CACHE_KEYS" | while read -r key; do
+              echo "Deleting cache with key: $key"
+              # 使用 --confirm 进行非交互式删除
+              if gh actions-cache delete "$key" --confirm; then
+                 echo "Successfully deleted cache: $key"
+              else
+                 # 如果删除失败（可能已被删除、权限问题或暂时错误），记录下来并继续
+                 echo "Failed to delete cache: $key (Maybe already deleted or permission issue?)"
+              fi
+            done
+          else
+            echo "No buildx-cache found containing 'buildx-cache'."
+          fi
+          echo "Cache deletion attempt finished."
+      # --- 新增步骤结束 ---
 
       - name: Login to Docker Hub # 定义步骤三：登录到 Docker Hub
         # 使用官方的 login action 来登录 Docker 镜像仓库
@@ -37,15 +72,10 @@ jobs: # 定义工作流中包含的任务
         with: # 为 action 提供参数
           images: beijixingxing/hajimi # 指定要构建和推送的 Docker 镜像名称
           tags: | # 定义生成 Docker 标签的规则 (多行字符串)
-            # 类型=semver, 模式={{version}}: 如果是 Git 标签推送，使用语义化版本号作为 Docker 标签 (例如 v1.2.3 -> 1.2.3)
             type=semver,pattern={{version}}
-            # 类型=semver, 模式={{major}}.{{minor}}: 同时生成 major.minor 格式的标签 (例如 v1.2.3 -> 1.2)
             type=semver,pattern={{major}}.{{minor}}
-            # 类型=semver, 模式={{major}}: 同时生成 major 格式的标签 (例如 v1.2.3 -> 1)
             type=semver,pattern={{major}}
-            # 类型=ref, 事件=branch, 模式=main, 值=latest: 如果是推送到 main 分支，则打上 'latest' 标签
             type=ref,event=branch,pattern=main,value=latest
-            # 类型=sha, 前缀=sha-, 格式=short: 为所有构建添加短 Git SHA 标签 (例如 sha-a1b2c3d)
             type=sha,prefix=sha-,format=short
 
       - name: Build and push Docker image # 定义步骤五：构建并推送 Docker 镜像
@@ -58,14 +88,19 @@ jobs: # 定义工作流中包含的任务
           push: true # 构建完成后将镜像推送到 Docker Hub
           tags: ${{ steps.meta.outputs.tags }} # 使用上一步骤 (meta) 生成的标签列表
           labels: ${{ steps.meta.outputs.labels }} # 使用上一步骤 (meta) 生成的 Labels 列表
-          # cache-from: type=gha # 指定从 GitHub Actions 缓存中加载构建缓存 # 暂时注释掉 
-          # cache-to: type=gha,mode=max # 指定将构建缓存保存到 GitHub Actions 缓存 (mode=max 尽可能多地缓存) # 暂时注释掉 
+          # --- 重新启用缓存 ---
+          cache-from: type=gha # 指定从 GitHub Actions 缓存中加载构建缓存
+          cache-to: type=gha,mode=max # 指定将构建缓存保存到 GitHub Actions 缓存 (mode=max 尽可能多地缓存)
 
   sync-fork: # 定义第二个任务，名为 sync-fork
     name: Sync Fork with Upstream # 设置任务在 GitHub UI 中显示的名称
     # 设置任务运行的条件：仅当推送是到 main 分支时运行此任务
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest # 指定任务运行在最新版的 Ubuntu 虚拟机上
+    # sync-fork 任务通常只需要读取和写入仓库内容
+    permissions:
+      contents: write
+
     steps: # 定义任务中的步骤序列
       - name: Checkout repository # 定义步骤一：检出当前 Fork 仓库的代码
         uses: actions/checkout@v3 # 使用官方的 checkout action
@@ -89,9 +124,12 @@ jobs: # 定义工作流中包含的任务
       - name: Merge upstream changes # 定义步骤五：合并上游仓库的更改
         run: | # 执行多行 shell 命令
           git checkout main # 切换到本地的 main 分支
-          git merge upstream/main # 将 upstream/main 分支合并到当前本地 main 分支
+          # 使用 --no-edit 避免在 CI 环境中打开编辑器
+          # 使用 -X theirs 策略在冲突时优先使用上游更改，根据需要调整
+          git merge --no-edit -X theirs upstream/main || (echo "Merge failed, check for conflicts manually" && exit 1)
 
       - name: Push changes to fork # 定义步骤六：将更改推送到当前 Fork 仓库
         env: # 设置环境变量
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 将 GITHUB_TOKEN 设置为环境变量，某些 git 操作可能需要
         run: git push origin main # 将本地 main 分支的更改推送到 origin 远程仓库 (即当前 Fork 仓库)
+
