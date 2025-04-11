@@ -30,7 +30,7 @@ jobs:
           # 使用 GitHub Secrets 中存储的 Docker Hub 用户名
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           # 使用 GitHub Secrets 中存储的 Docker Hub 令牌（建议使用令牌而不是密码）
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          password: ${{ secrets.secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image # 步骤的名称：构建并推送 Docker 镜像
         # 使用 docker/build-push-action@v4 这个 action 来构建和推送 Docker 镜像
@@ -38,7 +38,9 @@ jobs:
         with:
           context: .
           dockerfile: Dockerfile_git
-          tags: beijixingxing/hajimi:latest,beijixingxing/hajimi:${GITHUB_SHA::8} # 使用 commit SHA 作为标签
+          tags:
+            - beijixingxing/hajimi:latest
+            - beijixingxing/hajimi:${GITHUB_SHA::8} # 使用 commit SHA 作为标签
           push: true
           # 配置构建缓存
           cache-from: type=registry,ref=beijixingxing/hajimi:cache
@@ -79,4 +81,4 @@ jobs:
         env:
           # 设置环境变量 GITHUB_TOKEN，用于进行推送操作
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: git push origin main    
+        run: git push origin main
