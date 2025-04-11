@@ -1,169 +1,141 @@
-# 定义工作流的名称
-name: Build, Push Docker Image, and Sync Fork 
+# .github/workflows/build-push-sync.yml
+name: Build, Push Docker Image, and Sync Fork
 
-# 定义触发工作流的事件
-on: 
-  # 当有推送事件发生时
-  push: 
-    # 指定触发的分支
-    branches: 
-      - main 
-    # 指定触发的标签格式
-    tags: 
-      - 'v*.*.*' 
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*' # 仍然可以基于 Git 标签触发
 
-# 定义工作流中包含的任务
-jobs: 
-  # 定义第一个任务，名为 build-and-push
-  build-and-push: 
-    # 设置任务在 GitHub UI 中显示的名称
-    name: Build and Push Docker Image 
-    # 指定任务运行在最新版的 Ubuntu 虚拟机上
-    runs-on: ubuntu-latest 
-    # 设置任务运行的条件：当推送是到 main 分支 或 推送的是以 'refs/tags/v' 开头的标签时
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    # 移除了 actions: write 和 packages: write 权限，因为不再需要操作缓存或 GitHub Packages
     permissions:
-      # 只需要读取代码权限
-      contents: read 
+      contents: read
+      packages: write # 需要写权限以推送镜像到 Docker Hub (虽然 action 是 login, 但元数据可能需要)
 
-    # 定义任务中的步骤序列
-    steps: 
-      # 定义步骤一：检出代码
-      - name: Checkout code 
-        # 使用官方的 checkout action 来获取仓库代码
-        uses: actions/checkout@v3 
-        # 为 action 提供参数
-        with: 
-          # 获取所有 Git 历史记录 (0 表示完整历史)
-          fetch-depth: 0 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      # 新增步骤：读取 version.txt 文件中的版本号
-      - name: Read version from file
-        id: read-version
+      # --- 新增步骤：从 version.txt 读取并格式化版本号 ---
+      - name: Read version from version.txt
+        id: read_version # 为步骤设置 ID 以便引用其输出
         run: |
-          VERSION=$(cat version.txt)
-          echo "::set-output name=version::$VERSION"
+          # 读取文件内容 (例如 "version=0.1.1")
+          VERSION_LINE=$(cat version.txt)
+          # 检查文件内容是否符合预期格式
+          if [[ ! "$VERSION_LINE" =~ ^version=([0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then
+            echo "Error: version.txt format is incorrect. Expected 'version=X.Y.Z'."
+            exit 1
+          fi
+          # 使用 cut 提取 '=' 后面的部分 (0.1.1)
+          VERSION_NUM=$(echo "$VERSION_LINE" | cut -d '=' -f 2)
+          # 在版本号前加上 'v'
+          FORMATTED_VERSION="v$VERSION_NUM"
+          echo "Read version number: $VERSION_NUM"
+          echo "Formatted tag: $FORMATTED_VERSION"
+          # 使用 GITHUB_OUTPUT 设置输出变量 (新推荐方式)
+          echo "version_tag=$FORMATTED_VERSION" >> $GITHUB_OUTPUT
 
-      # 新增步骤：压缩 app 文件夹内的文件
-      - name: Compress app files 
+      # --- 注意：这个压缩步骤是否真的需要？ ---
+      # 如果你的 Dockerfile 仍然使用 COPY ./app/ /app/，这个 zip 文件可能不会被用到。
+      # 请确认 Dockerfile 是否已修改为处理 app.zip。
+      - name: Compress app files (Verify if needed by Dockerfile)
         run: |
-          # 进入 app 目录
-          cd app
-          # 递归压缩 app 目录下的所有文件到上级目录的 app.zip
-          zip -r ../app.zip .
-          # 返回上级目录
-          cd ..
+          if [ -d "app" ]; then
+            echo "Compressing ./app directory..."
+            cd app
+            zip -r ../app.zip .
+            cd ..
+            echo "Created app.zip"
+          else
+            echo "Warning: ./app directory not found, skipping compression."
+          fi
 
-      # 定义步骤二：设置 Docker Buildx
-      - name: Set up Docker Buildx 
-        # 使用官方的 setup-buildx action，启用更高级的 Docker 构建功能，如多平台构建
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 定义步骤三：登录到 Docker Hub
-      - name: Login to Docker Hub 
-        # 使用官方的 login action 来登录 Docker 镜像仓库
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
-        # 为 action 提供参数
-        with: 
-          # 使用仓库 Secrets 中存储的 Docker Hub 用户名
-          username: ${{ secrets.DOCKERHUB_USERNAME }} 
-          # 使用仓库 Secrets 中存储的 Docker Hub 访问令牌 (PAT)
-          password: ${{ secrets.DOCKERHUB_TOKEN }} 
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 定义步骤四：提取 Docker 元数据
-      - name: Docker meta 
-        # 为此步骤设置一个 ID (meta)，以便后续步骤引用其输出
-        id: meta 
-        # 使用官方的 metadata-action
-        uses: docker/metadata-action@v4 
-        # 为 action 提供参数
-        with: 
-          # 指定要构建和推送的 Docker 镜像名称
-          images: beijixingxing/hajimi 
-          # 定义生成 Docker 标签的规则 (多行字符串)
-          tags: | 
-            type=raw,value=${{ steps.read-version.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+      # --- 修改步骤：使用读取到的版本号生成标签 ---
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: beijixingxing/hajimi
+          tags: |
+            # 1. 使用从 version.txt 读取并格式化后的版本号作为主要标签
+            type=raw,value=${{ steps.read_version.outputs.version_tag }}
+
+            # 2. (可选) 如果推送的是 Git 标签 (vX.Y.Z)，也生成对应的 semver 标签
+            #    这在你手动打 Git 标签发布时有用
+            type=semver,pattern={{version}} # 例如 v1.0.0 -> 1.0.0
+            type=semver,pattern={{major}}.{{minor}} # 例如 v1.0.0 -> 1.0
+            type=semver,pattern={{major}} # 例如 v1.0.0 -> 1
+
+            # 3. 如果是推送到 main 分支，打上 latest 标签
             type=ref,event=branch,pattern=main,value=latest
+
+            # 4. 总是打上短 SHA 标签，方便调试
             type=sha,prefix=sha-,format=short
 
-      # 定义步骤五：构建并推送 Docker 镜像
-      - name: Build and push Docker image 
-        # 使用官方的 build-push action 来执行 Docker 构建和推送
+      - name: Build and push Docker image
         uses: docker/build-push-action@v4
-        # 为 action 提供参数
-        with: 
-          # 指定 Docker 构建上下文为仓库根目录
-          context: . 
-          # 修改为使用 Dockerfile 构建
-          file: ./Dockerfile 
-          # 如果需要构建多平台镜像，取消此行注释并指定目标平台
-          # platform: linux/amd64,linux/arm64 
-          # 构建完成后将镜像推送到 Docker Hub
-          push: true 
-          # 使用上一步骤 (meta) 生成的标签列表
-          tags: ${{ steps.meta.outputs.tags }} 
-          # 使用上一步骤 (meta) 生成的 Labels 列表
-          labels: ${{ steps.meta.outputs.labels }} 
-          # --- cache-from 和 cache-to 参数已被删除 ---
+        with:
+          context: .
+          # 确认 Dockerfile 文件名是否正确 (之前是 Dockerfile_git)
+          file: ./Dockerfile
+          # platform: linux/amd64,linux/arm64 # 如果需要多平台
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 缓存可以根据需要重新启用，例如 type=gha 或 type=inline
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
 
-  # 定义第二个任务，名为 sync-fork
-  sync-fork: 
-    # 设置任务在 GitHub UI 中显示的名称
-    name: Sync Fork with Upstream 
-    # 设置任务运行的条件：仅当推送是到 main 分支时运行此任务
+  sync-fork:
+    name: Sync Fork with Upstream
     if: github.ref == 'refs/heads/main'
-    # 指定任务运行在最新版的 Ubuntu 虚拟机上
-    runs-on: ubuntu-latest 
-    # sync-fork 任务通常只需要读取和写入仓库内容
+    runs-on: ubuntu-latest
     permissions:
       contents: write
 
-    # 定义任务中的步骤序列
-    steps: 
-      # 定义步骤一：检出当前 Fork 仓库的代码
-      - name: Checkout repository 
-        # 使用官方的 checkout action
-        uses: actions/checkout@v3 
-        # 为 action 提供参数
-        with: 
-          # 获取所有 Git 历史记录
-          fetch-depth: 0 
-          # 使用 GitHub 自动提供的 GITHUB_TOKEN 进行认证，以便后续推送
-          token: ${{ secrets.GITHUB_TOKEN }} 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 定义步骤二：设置 Git 配置
-      - name: Set up Git 
-        run: | 
-          # 配置 Git 提交时使用的用户名
-          git config user.name "beijixingxing" 
-          # 配置 Git 提交时使用的邮箱
-          git config user.email "yunxi815@gmail.com" 
+      - name: Set up Git
+        run: |
+          git config user.name "beijixingxing"
+          git config user.email "yunxi815@gmail.com"
 
-      # 定义步骤三：添加上游仓库的远程地址
-      - name: Add upstream remote 
-        run: | 
-          # 添加一个名为 'upstream' 的远程仓库，指向原始仓库的 URL
+      - name: Add upstream remote
+        run: |
           git remote add upstream https://github.com/wyeeeee/hajimi.git
 
-      # 定义步骤四：获取上游仓库的更改
-      - name: Fetch upstream changes 
-        run: git fetch upstream main 
+      - name: Fetch upstream changes
+        run: git fetch upstream main
 
-      # 定义步骤五：合并上游仓库的更改
-      - name: Merge upstream changes 
-        run: | 
-          # 切换到本地的 main 分支
-          git checkout main 
-          # 使用 --no-edit 避免在 CI 环境中打开编辑器
-          # 使用 -X theirs 策略在冲突时优先使用上游更改，根据需要调整
+      - name: Merge upstream changes
+        run: |
+          git checkout main
           git merge --no-edit -X theirs upstream/main || (echo "Merge failed, check for conflicts manually" && exit 1)
 
-      # 定义步骤六：将更改推送到当前 Fork 仓库
-      - name: Push changes to fork 
-        env: 
-          # 将 GITHUB_TOKEN 设置为环境变量，某些 git 操作可能需要
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-        run: git push origin main     
+      - name: Push changes to fork
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: git push origin main
+
