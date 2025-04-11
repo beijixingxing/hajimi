@@ -1,48 +1,44 @@
-name: Build, Push, and Sync # 更全面的工作流名称
+name: Build and Push Docker Image
 
 on:
-  # 定义触发工作流的事件
+  # 当代码推送到 main 分支时触发工作流
   push:
-    # 当代码推送到指定分支时触发
     branches:
-      - main # 仅当代码推送到 main 分支时触发
-  # 定时触发工作流，每 6 小时运行一次
-  schedule:
-    - cron: '0 */6 * * *'
+      - main
 
 jobs:
-  build-and-push: # 定义一个名为 build-and-push 的任务
-    runs-on: ubuntu-latest # 指定运行此任务的操作系统环境
-
-    steps: # 定义任务中的步骤
-      - name: Checkout code # 步骤的名称：检出代码
-        # 使用 actions/checkout@v3 这个 action 来检出代码
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        # 检出代码到工作目录
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx # 步骤的名称：设置 Docker Buildx
-        # 使用 docker/setup-buildx-action@v2 这个 action 来设置 Docker Buildx，用于支持多平台构建
+      - name: Compress app file
+        # 压缩 app 文件为 app.zip
+        run: zip -r app.zip app
+        working-directory: .
+
+      - name: Set up Docker Buildx
+        # 设置 Docker Buildx 以支持多平台构建
         uses: docker/setup-buildx-action@v2
 
-      - name: Login to Docker Hub # 步骤的名称：登录到 Docker Hub
-        # 使用 docker/login-action@v2 这个 action 来登录到 Docker Hub
+      - name: Login to Docker Hub
+        # 登录到 Docker Hub
         uses: docker/login-action@v2
         with:
-          # 使用 GitHub Secrets 中存储的 Docker Hub 用户名
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          # 使用 GitHub Secrets 中存储的 Docker Hub 令牌（建议使用令牌而不是密码）
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image # 步骤的名称：构建并推送 Docker 镜像
-        # 使用 docker/build-push-action@v4 这个 action 来构建和推送 Docker 镜像
+      - name: Build and push Docker image
+        # 构建并推送 Docker 镜像
         uses: docker/build-push-action@v4
         with:
           context: .
-          dockerfile: Dockerfile_git
-          tags: ['beijixingxing/hajimi:latest'] # 移除使用 commit SHA 作为标签的代码
+          # 指定镜像标签
+          tags: beijixingxing/hajimi:latest
+          # 推送到 Docker Hub
           push: true
-          # 配置构建缓存
-          cache-from: type=registry,ref=beijixingxing/hajimi:cache
-          cache-to: type=registry,ref=beijixingxing/hajimi:cache,mode=max
 
   sync-fork: # 定义一个名为 sync-fork 的任务
     runs-on: ubuntu-latest # 指定运行此任务的操作系统环境
