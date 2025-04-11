@@ -26,4 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # app.main:app 指的是 /app/main.py 文件中的 app 对象
 # --host 0.0.0.0 使服务可以从容器外部访问
 # --port 7860 指定服务监听的端口
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# ... (其他指令保持不变) ...
+# 定义容器启动时执行的命令: 直接加载 /app/main.py 中的 app 对象
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+
