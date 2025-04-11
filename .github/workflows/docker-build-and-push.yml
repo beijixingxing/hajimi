@@ -38,12 +38,11 @@ jobs:
         with:
           context: .
           dockerfile: Dockerfile_git
-          # 注意：标签中的 GITHUB_SHA::8 可能需要是 ${{ github.sha }} 的一部分
-          # 修正为：
+          # 修正后的 tags 部分：每个标签占一行
           tags: |
             beijixingxing/hajimi:latest
-            beijixingxing/hajimi:${{ github.sha }} # 使用完整的 SHA 或截断 ${{ github.sha }}
-            beijixingxing/hajimi:${{ github.sha }} # 或者使用表达式截断: beijixingxing/hajimi:${{ format('{0}', github.sha).substring(0, 8) }}
+            beijixingxing/hajimi:${{ github.sha }}
+            beijixingxing/hajimi:${{ substring(github.sha, 0, 8) }} # 使用短 SHA (前 8 位)
           push: true
           # 配置构建缓存
           cache-from: type=registry,ref=beijixingxing/hajimi:cache
@@ -51,6 +50,8 @@ jobs:
 
   sync-fork: # 定义一个名为 sync-fork 的任务
     runs-on: ubuntu-latest # 指定运行此任务的操作系统环境
+    # 确保 build-and-push 成功后再运行同步（如果需要依赖关系）
+    # needs: build-and-push # 如果希望同步在构建推送成功后进行，取消此行注释
 
     steps: # 定义任务中的步骤
       - name: Checkout repository # 步骤的名称：检出仓库
@@ -65,7 +66,6 @@ jobs:
 
       - name: Set up Git # 步骤的名称：设置 Git
         # 运行脚本来配置 Git 用户名和邮箱
-        # *** 修正此处的缩进 ***
         run: |
           git config user.name "beijixingxing" # 设置 Git 用户名为 beijixingxing (或使用 GitHub Actions bot)
           git config user.email "yunxi815@gmail.com" # 设置 Git 邮箱 (或使用 GitHub Actions bot 邮箱)
