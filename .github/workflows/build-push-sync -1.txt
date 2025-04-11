@@ -1,0 +1,97 @@
+name: Build, Push Docker Image, and Sync Fork # 定义工作流的名称
+
+on: # 定义触发工作流的事件
+  push: # 当有推送事件发生时
+    branches: # 指定触发的分支
+      - main # main 分支上的推送会触发
+    tags: # 指定触发的标签格式
+      - 'v*.*.*' # 匹配 vX.Y.Z 格式的标签推送会触发 (例如 v1.0.0)
+
+jobs: # 定义工作流中包含的任务
+  build-and-push: # 定义第一个任务，名为 build-and-push
+    name: Build and Push Docker Image # 设置任务在 GitHub UI 中显示的名称
+    runs-on: ubuntu-latest # 指定任务运行在最新版的 Ubuntu 虚拟机上
+    # 设置任务运行的条件：当推送是到 main 分支 或 推送的是以 'refs/tags/v' 开头的标签时
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    steps: # 定义任务中的步骤序列
+      - name: Checkout code # 定义步骤一：检出代码
+        uses: actions/checkout@v3 # 使用官方的 checkout action 来获取仓库代码
+        with: # 为 action 提供参数
+          fetch-depth: 0 # 获取所有 Git 历史记录 (0 表示完整历史)
+
+      - name: Set up Docker Buildx # 定义步骤二：设置 Docker Buildx
+        # 使用官方的 setup-buildx action，启用更高级的 Docker 构建功能，如多平台构建
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub # 定义步骤三：登录到 Docker Hub
+        # 使用官方的 login action 来登录 Docker 镜像仓库
+        uses: docker/login-action@v2
+        with: # 为 action 提供参数
+          username: ${{ secrets.DOCKERHUB_USERNAME }} # 使用仓库 Secrets 中存储的 Docker Hub 用户名
+          password: ${{ secrets.DOCKERHUB_TOKEN }} # 使用仓库 Secrets 中存储的 Docker Hub 访问令牌 (PAT)
+
+      - name: Docker meta # 定义步骤四：提取 Docker 元数据
+        # 使用 metadata-action 根据 Git 事件（分支、标签、SHA）自动生成 Docker 标签和 Labels
+        id: meta # 为此步骤设置一个 ID (meta)，以便后续步骤引用其输出
+        uses: docker/metadata-action@v4 # 使用官方的 metadata-action
+        with: # 为 action 提供参数
+          images: beijixingxing/hajimi # 指定要构建和推送的 Docker 镜像名称
+          tags: | # 定义生成 Docker 标签的规则 (多行字符串)
+            # 类型=semver, 模式={{version}}: 如果是 Git 标签推送，使用语义化版本号作为 Docker 标签 (例如 v1.2.3 -> 1.2.3)
+            type=semver,pattern={{version}}
+            # 类型=semver, 模式={{major}}.{{minor}}: 同时生成 major.minor 格式的标签 (例如 v1.2.3 -> 1.2)
+            type=semver,pattern={{major}}.{{minor}}
+            # 类型=semver, 模式={{major}}: 同时生成 major 格式的标签 (例如 v1.2.3 -> 1)
+            type=semver,pattern={{major}}
+            # 类型=ref, 事件=branch, 模式=main, 值=latest: 如果是推送到 main 分支，则打上 'latest' 标签
+            type=ref,event=branch,pattern=main,value=latest
+            # 类型=sha, 前缀=sha-, 格式=short: 为所有构建添加短 Git SHA 标签 (例如 sha-a1b2c3d)
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push Docker image # 定义步骤五：构建并推送 Docker 镜像
+        # 使用官方的 build-push action 来执行 Docker 构建和推送
+        uses: docker/build-push-action@v4
+        with: # 为 action 提供参数
+          context: . # 指定 Docker 构建上下文为仓库根目录
+          file: ./Dockerfile_git # 指定用于构建的 Dockerfile 文件路径
+          # platform: linux/amd64,linux/arm64 # 如果需要构建多平台镜像，取消此行注释并指定目标平台
+          push: true # 构建完成后将镜像推送到 Docker Hub
+          tags: ${{ steps.meta.outputs.tags }} # 使用上一步骤 (meta) 生成的标签列表
+          labels: ${{ steps.meta.outputs.labels }} # 使用上一步骤 (meta) 生成的 Labels 列表
+          cache-from: type=gha # 指定从 GitHub Actions 缓存中加载构建缓存
+          cache-to: type=gha,mode=max # 指定将构建缓存保存到 GitHub Actions 缓存 (mode=max 尽可能多地缓存)
+
+  sync-fork: # 定义第二个任务，名为 sync-fork
+    name: Sync Fork with Upstream # 设置任务在 GitHub UI 中显示的名称
+    # 设置任务运行的条件：仅当推送是到 main 分支时运行此任务
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest # 指定任务运行在最新版的 Ubuntu 虚拟机上
+    steps: # 定义任务中的步骤序列
+      - name: Checkout repository # 定义步骤一：检出当前 Fork 仓库的代码
+        uses: actions/checkout@v3 # 使用官方的 checkout action
+        with: # 为 action 提供参数
+          fetch-depth: 0 # 获取所有 Git 历史记录
+          token: ${{ secrets.GITHUB_TOKEN }} # 使用 GitHub 自动提供的 GITHUB_TOKEN 进行认证，以便后续推送
+
+      - name: Set up Git # 定义步骤二：设置 Git 配置
+        run: | # 执行多行 shell 命令
+          git config user.name "beijixingxing" # 配置 Git 提交时使用的用户名
+          git config user.email "yunxi815@gmail.com" # 配置 Git 提交时使用的邮箱
+
+      - name: Add upstream remote # 定义步骤三：添加上游仓库的远程地址
+        run: | # 执行多行 shell 命令
+          # 添加一个名为 'upstream' 的远程仓库，指向原始仓库的 URL
+          git remote add upstream https://github.com/wyeeeee/hajimi.git
+
+      - name: Fetch upstream changes # 定义步骤四：获取上游仓库的更改
+        run: git fetch upstream main # 从 upstream 远程仓库获取 main 分支的最新提交
+
+      - name: Merge upstream changes # 定义步骤五：合并上游仓库的更改
+        run: | # 执行多行 shell 命令
+          git checkout main # 切换到本地的 main 分支
+          git merge upstream/main # 将 upstream/main 分支合并到当前本地 main 分支
+
+      - name: Push changes to fork # 定义步骤六：将更改推送到当前 Fork 仓库
+        env: # 设置环境变量
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 将 GITHUB_TOKEN 设置为环境变量，某些 git 操作可能需要
+        run: git push origin main # 将本地 main 分支的更改推送到 origin 远程仓库 (即当前 Fork 仓库)
