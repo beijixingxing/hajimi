@@ -58,8 +58,8 @@ jobs: # 定义工作流中包含的任务
           push: true # 构建完成后将镜像推送到 Docker Hub
           tags: ${{ steps.meta.outputs.tags }} # 使用上一步骤 (meta) 生成的标签列表
           labels: ${{ steps.meta.outputs.labels }} # 使用上一步骤 (meta) 生成的 Labels 列表
-          cache-from: type=gha # 指定从 GitHub Actions 缓存中加载构建缓存
-          cache-to: type=gha,mode=max # 指定将构建缓存保存到 GitHub Actions 缓存 (mode=max 尽可能多地缓存)
+          # cache-from: type=gha # 指定从 GitHub Actions 缓存中加载构建缓存 # 暂时注释掉 
+          # cache-to: type=gha,mode=max # 指定将构建缓存保存到 GitHub Actions 缓存 (mode=max 尽可能多地缓存) # 暂时注释掉 
 
   sync-fork: # 定义第二个任务，名为 sync-fork
     name: Sync Fork with Upstream # 设置任务在 GitHub UI 中显示的名称
