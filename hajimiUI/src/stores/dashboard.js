@@ -142,6 +142,34 @@ export const useDashboardStore = defineStore('dashboard', () => {
     isDarkMode.value = !isDarkMode.value
   }
 
+  // 更新配置项
+  async function updateConfig(key, value, password) {
+    try {
+      const response = await fetch('/api/update-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          key,
+          value,
+          password
+        })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || '更新配置失败')
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('更新配置失败:', error)
+      throw error
+    }
+  }
+
   return {
     status,
     config,
@@ -153,6 +181,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     availableModels,
     setSelectedModel,
     isDarkMode,
-    toggleDarkMode
+    toggleDarkMode,
+    updateConfig
   }
 })

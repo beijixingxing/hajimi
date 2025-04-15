@@ -208,3 +208,123 @@ async def reset_stats(password_data: dict):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"重置失败：{str(e)}")
+
+@dashboard_router.post("/update-config")
+async def update_config(config_data: dict):
+    """
+    更新配置项
+    
+    Args:
+        config_data (dict): 包含配置项和密码的字典
+        
+    Returns:
+        dict: 操作结果
+    """
+    try:
+        if not isinstance(config_data, dict):
+            raise HTTPException(status_code=422, detail="请求体格式错误：应为JSON对象")
+            
+        password = config_data.get("password")
+        if not password:
+            raise HTTPException(status_code=400, detail="缺少密码参数")
+            
+        if not isinstance(password, str):
+            raise HTTPException(status_code=422, detail="密码参数类型错误：应为字符串")
+            
+        if not verify_password(password):
+            raise HTTPException(status_code=401, detail="密码错误")
+        
+        # 获取要更新的配置项
+        config_key = config_data.get("key")
+        config_value = config_data.get("value")
+        
+        if not config_key:
+            raise HTTPException(status_code=400, detail="缺少配置项键名")
+            
+        # 根据配置项类型进行类型转换和验证
+        if config_key == "max_requests_per_minute":
+            try:
+                value = int(config_value)
+                if value <= 0:
+                    raise ValueError("每分钟请求限制必须大于0")
+                settings.MAX_REQUESTS_PER_MINUTE = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        elif config_key == "max_requests_per_day_per_ip":
+            try:
+                value = int(config_value)
+                if value <= 0:
+                    raise ValueError("每IP每日请求限制必须大于0")
+                settings.MAX_REQUESTS_PER_DAY_PER_IP = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        elif config_key == "fake_streaming":
+            if not isinstance(config_value, bool):
+                raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
+            settings.FAKE_STREAMING = config_value
+            
+        elif config_key == "fake_streaming_interval":
+            try:
+                value = float(config_value)
+                if value <= 0:
+                    raise ValueError("假流式间隔必须大于0")
+                settings.FAKE_STREAMING_INTERVAL = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        elif config_key == "random_string":
+            if not isinstance(config_value, bool):
+                raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
+            settings.RANDOM_STRING = config_value
+            
+        elif config_key == "random_string_length":
+            try:
+                value = int(config_value)
+                if value <= 0:
+                    raise ValueError("随机字符串长度必须大于0")
+                settings.RANDOM_STRING_LENGTH = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        elif config_key == "search_mode":
+            if not isinstance(config_value, bool):
+                raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
+            settings.search["search_mode"] = config_value
+            
+        elif config_key == "concurrent_requests":
+            try:
+                value = int(config_value)
+                if value <= 0:
+                    raise ValueError("并发请求数必须大于0")
+                settings.CONCURRENT_REQUESTS = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        elif config_key == "increase_concurrent_on_failure":
+            try:
+                value = int(config_value)
+                if value < 0:
+                    raise ValueError("失败时增加的并发数不能为负数")
+                settings.INCREASE_CONCURRENT_ON_FAILURE = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        elif config_key == "max_concurrent_requests":
+            try:
+                value = int(config_value)
+                if value <= 0:
+                    raise ValueError("最大并发请求数必须大于0")
+                settings.MAX_CONCURRENT_REQUESTS = value
+            except ValueError as e:
+                raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+                
+        else:
+            raise HTTPException(status_code=400, detail=f"不支持的配置项：{config_key}")
+        
+        return {"status": "success", "message": f"配置项 {config_key} 已更新"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新失败：{str(e)}")

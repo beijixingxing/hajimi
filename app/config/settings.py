@@ -30,7 +30,7 @@ MAX_RETRY_DELAY = 16
 # 并发请求配置
 CONCURRENT_REQUESTS = int(os.environ.get("CONCURRENT_REQUESTS", "1"))  # 默认并发请求数
 INCREASE_CONCURRENT_ON_FAILURE = int(os.environ.get("INCREASE_CONCURRENT_ON_FAILURE", "1"))  # 失败时增加的并发数
-MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "3"))  # 最大并发请求数
+MAX_CONCURRENT_REQUESTS = int(os.environ.get("MAX_CONCURRENT_REQUESTS", "2"))  # 最大并发请求数
 
 # API密钥使用限制
 # 默认每个API密钥每24小时可使用次数
