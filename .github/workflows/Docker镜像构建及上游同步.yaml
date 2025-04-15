@@ -38,11 +38,9 @@ jobs:
           ls -l /tmp/workflow_backup/
 
       - name: 版本检测
-        timeout-minutes: 3
         env:
           RETRY_COUNT: 3
         run: |
-          # 带重试机制的版本获取
           for i in $(seq 1 $RETRY_COUNT); do
             CURRENT_VERSION=$(grep -oP 'version\s*=\s*["\x27]?\K[0-9]+\.[0-9]+\.[0-9]+' version.txt 2>/dev/null) && break
             sleep 5
@@ -54,7 +52,6 @@ jobs:
           fi
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
-          # 带超时的上游版本获取
           UPSTREAM_RAW=$(curl --retry 3 --max-time 10 -fsSL https://raw.githubusercontent.com/wyeeeee/hajimi/main/version.txt)
           UPSTREAM_VERSION=$(echo "$UPSTREAM_RAW" | grep -oP 'version\s*=\s*["\x27]?\K[0-9]+\.[0-9]+\.[0-9]+')
           echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
@@ -130,7 +127,9 @@ jobs:
         run: |
           cd src
           RAW_VERSION=$(grep -oP 'version\s*=\s*"\K[0-9]+\.[0-9]+\.[0-9]+' version.txt)
-          echo "version=v${RAW_VERSION}" >> $GITHUB_OUTPUT
+          # 同时输出带v和不带v的版本
+          echo "version=v${RAW_VERSION}" >> $GITHUB_OUTPUT  
+          echo "raw_version=${RAW_VERSION}" >> $GITHUB_OUTPUT
           echo "🏷️ 生成镜像版本：v$RAW_VERSION"
 
       - name: 准备构建上下文
@@ -184,9 +183,10 @@ jobs:
         run: |
           echo "🔍 验证镜像内容..."
           docker pull beijixingxing/hajimi:${{ steps.version.outputs.version }}
+          # 使用raw_version进行比较
           docker run --rm beijixingxing/hajimi:${{ steps.version.outputs.version }} \
             sh -c 'echo "镜像内部版本: $(cat /app/version.txt)" && \
-            grep -q "version=${{ steps.version.outputs.version#v}}" /app/version.txt' || {
+            grep -q "version=${{ steps.version.outputs.raw_version }}" /app/version.txt' || {
               echo "::error::镜像版本不匹配！"
               exit 1
             }
