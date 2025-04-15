@@ -1,123 +1,118 @@
 name: Docker镜像构建及上游同步
 
 on:
+  # 触发条件配置
   push:
     branches: [main]
     tags: ['v*.*.*']
   schedule:
-    - cron: '0 3 * * *'  # 每天UTC时间3点（北京时间11点）
-  workflow_dispatch:
+    - cron: '0 * * * *'  # 每小时执行一次
+  workflow_dispatch:    # 支持手动触发
+
+permissions:
+  contents: write       # 同步任务需要写权限
 
 jobs:
   sync-fork:
     name: 上游仓库同步
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
     outputs:
       should_build: ${{ steps.build_control.outputs.should_build }}
-    
+
     steps:
+      # ----------------------------
+      # 仓库准备阶段
+      # ----------------------------
       - name: 检出仓库
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          path: main-repo  # 指定检出路径
 
       - name: 配置Git身份
         run: |
           git config user.name "beijixingxing"
           git config user.email "yunxi815@gmail.com"
-          echo "✅ Git身份配置完成"
 
+      # ----------------------------
+      # 版本检测阶段
+      # ----------------------------
       - name: 备份工作流文件
         run: |
-          mkdir -p .github/workflows/backup
-          cp -v .github/workflows/*.yml .github/workflows/backup/
-          echo "🔄 已备份工作流文件到 .github/workflows/backup"
-          ls -l .github/workflows/backup
+          mkdir -p /tmp/workflow_backup
+          cp -r .github/workflows/ /tmp/workflow_backup/
+          echo "工作流文件已备份"
 
-      - name: 获取版本信息
-        timeout-minutes: 5
-        env:
-          RETRY_COUNT: 3
+      - name: 读取当前版本
+        id: current_version
         run: |
-          cd main-repo  # 进入指定路径
-          echo "📄 当前目录文件列表："
-          ls -l
-
-          # 带重试机制的版本获取
-          for i in $(seq 1 $RETRY_COUNT); do
-            CURRENT_VERSION=$(grep -oP 'version\s*=\s*["\x27]?\K[0-9]+\.[0-9]+\.[0-9]+' version.txt) && break
-            sleep 2
-            echo "🔄 重试获取版本 ($i/$RETRY_COUNT)..."
-          done
-          [ -z "$CURRENT_VERSION" ] && { echo "::error::无法提取当前版本"; exit 1; }
+          CURRENT_VERSION=$(grep -oP 'version=\K.*' version.txt)
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "当前版本: $CURRENT_VERSION"
 
-          # 获取上游版本
-          UPSTREAM_RAW=$(curl --retry 3 --max-time 10 -fsSL https://raw.githubusercontent.com/wyeeeee/hajimi/main/version.txt)
-          UPSTREAM_VERSION=$(echo "$UPSTREAM_RAW" | grep -oP 'version\s*=\s*["\x27]?\K[0-9]+\.[0-9]+\.[0-9]+')
+      - name: 获取上游版本
+        id: upstream_version
+        run: |
+          UPSTREAM_RAW=$(curl -s https://raw.githubusercontent.com/wyeeeee/hajimi/main/version.txt)
+          UPSTREAM_VERSION=$(echo "$UPSTREAM_RAW" | grep -oP 'version=\K.*')
           echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
-          echo "🔍 版本信息获取完成"
+          echo "上游版本: $UPSTREAM_VERSION"
 
+      # ----------------------------
+      # 同步操作阶段
+      # ----------------------------
       - name: 版本比对
+        id: version_check
         run: |
-          echo "🔄 本地版本: ${{ steps.current_version.outputs.current_version }}"
-          echo "🆕 上游版本: ${{ steps.upstream_version.outputs.upstream_version }}"
-          if [[ "${{ steps.current_version.outputs.current_version }}" != "${{ steps.upstream_version.outputs.upstream_version }}" ]]; then
+          if [ "${{ steps.current_version.outputs.current_version }}" != "${{ steps.upstream_version.outputs.upstream_version }}" ]; then
+            echo "::notice::检测到版本变更（本地:${{ steps.current_version.outputs.current_version }} 上游:${{ steps.upstream_version.outputs.upstream_version }}）"
             echo "need_sync=true" >> $GITHUB_OUTPUT
-            echo "::notice::检测到新版本，需要同步"
           else
+            echo "::notice::版本号相同，无需同步"
             echo "need_sync=false" >> $GITHUB_OUTPUT
-            echo "::notice::版本一致，无需同步"
           fi
 
-      - name: 执行同步
+      - name: 配置上游仓库
         if: steps.version_check.outputs.need_sync == 'true'
         run: |
-          cd main-repo  # 进入指定路径
           git remote add upstream https://github.com/wyeeeee/hajimi.git || true
-          git fetch upstream main --depth=1
-          git reset --hard upstream/main
-          echo "🔄 强制同步完成"
+          git fetch upstream
 
-      - name: 恢复工作流配置
+      - name: 强制同步
         if: steps.version_check.outputs.need_sync == 'true'
         run: |
-          cd main-repo  # 进入指定路径
-          cp -v .github/workflows/backup/*.yml .github/workflows/
-          git add .github/workflows/
-          if ! git commit -m "恢复自定义工作流配置"; then
-            echo "⚠️ 无工作流文件变更"
-          fi
-          git push origin main --force-with-lease
-          echo "✅ 工作流配置恢复完成"
+          git reset --hard upstream/main
+          echo "已完成代码同步"
 
-      - name: 构建控制
+      - name: 恢复工作流文件
+        if: steps.version_check.outputs.need_sync == 'true'
+        run: |
+          cp -r /tmp/workflow_backup/workflows/ .github/
+          git add .github/workflows/
+          git commit -m "恢复工作流文件" || echo "没有工作流文件变更"
+          git push origin main
+          echo "工作流文件已恢复"
+
+      # ----------------------------
+      # 构建控制逻辑
+      # ----------------------------
+      - name: 设置构建控制标志
         id: build_control
         run: |
-          echo "触发事件类型: ${{ github.event_name }}"
-          echo "同步状态: ${{ steps.version_check.outputs.need_sync }}"
-          
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] || [ "${{ github.event_name }}" == "push" ]; then
             echo "should_build=true" >> $GITHUB_OUTPUT
-            echo "🎯 手动触发构建"
-          elif [[ "${{ github.event_name }}" == "push" ]]; then
+          elif [ "${{ github.event_name }}" == "schedule" ] && [ "${{ steps.version_check.outputs.need_sync }}" == "true" ]; then
             echo "should_build=true" >> $GITHUB_OUTPUT
-            echo "🎯 代码推送触发构建"
-          elif [[ "${{ github.event_name }}" == "schedule" && "${{ steps.version_check.outputs.need_sync }}" == "true" ]]; then
-            echo "should_build=true" >> $GITHUB_OUTPUT
-            echo "🎯 定时任务触发构建"
           else
             echo "should_build=false" >> $GITHUB_OUTPUT
-            echo "⏸️ 不满足构建条件"
           fi
+          echo "构建标志设置为: ${{ steps.build_control.outputs.should_build }}"
 
+  # =================================================================
+  # Docker镜像构建任务
+  # =================================================================
   build-and-push:
-    name: 构建推送镜像
+    name: 构建推送Docker镜像
     needs: sync-fork
     runs-on: ubuntu-latest
     if: ${{ needs.sync-fork.outputs.should_build == 'true' }}
@@ -126,70 +121,46 @@ jobs:
       packages: write
 
     steps:
-      - name: 获取最新代码
+      - name: 检出代码
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
           path: src
-          clean: true
-          fetch-depth: 0
 
-      - name: 验证目录结构
+      - name: 验证同步后版本
         run: |
-          echo "📂 工作区目录结构："
-          ls -l
-          if [ ! -d "src" ]; then
-            echo "::error::src目录不存在！"
+          cd src
+          echo "当前版本: $(grep -oP 'version=\K.*' version.txt)"
+          if [ ! -f version.txt ]; then
+            echo "::error::version.txt 文件不存在"
             exit 1
           fi
-          echo "✅ 目录验证通过"
 
-      - name: 提取版本信息
+      - name: 读取版本号
         id: version
         run: |
-          cd src || exit 1
-          echo "📄 version.txt内容："
-          cat version.txt
-          
-          # 支持带引号和空格的版本格式
-          RAW_VERSION=$(grep -oP 'version\s*=\s*["\x27]?\K[0-9]+\.[0-9]+\.[0-9]+' version.txt)
-          if [ -z "$RAW_VERSION" ]; then
-            echo "::error::版本提取失败！文件内容："
-            cat version.txt
-            exit 1
-          fi
-          
-          echo "version=v${RAW_VERSION}" >> $GITHUB_OUTPUT
-          echo "raw_version=${RAW_VERSION}" >> $GITHUB_OUTPUT
-          echo "生成的镜像标签：v$RAW_VERSION"
+          cd src
+          VERSION=$(grep -oP 'version=\K.*' version.txt)
+          echo "version=v$VERSION" >> $GITHUB_OUTPUT
+          echo "镜像版本: v$VERSION"
+
+      - name: 压缩应用文件
+        run: |
+          cd src/app
+          zip -r ../app.zip *
+          echo "压缩包内容预览:"
+          unzip -l ../app.zip | head -10
 
       - name: 准备构建上下文
         run: |
-          rm -rf docker_build
           mkdir -p docker_build
-          echo "📦 正在复制构建文件："
-          cp -v src/Dockerfile docker_build/
-          cp -v src/version.txt docker_build/
-          
-          if [ -d "src/app" ]; then
-            cp -rv src/app docker_build/
-            echo "✅ 已复制应用目录"
-          else
-            echo "::warning::未找到app目录"
-          fi
-          
-          if [ -f "src/requirements.txt" ]; then
-            cp -v src/requirements.txt docker_build/
-          fi
-          
-          echo "最终构建上下文："
-          tree docker_build
+          cp src/app.zip docker_build/
+          cp src/Dockerfile docker_build/
+          cp src/requirements.txt docker_build/
+          cp src/version.txt docker_build/
+          echo "构建上下文准备完成"
 
-      - name: 配置构建环境
+      - name: 配置Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
-          platforms: linux/amd64,linux/arm64
 
       - name: 登录Docker Hub
         uses: docker/login-action@v3
@@ -197,16 +168,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 生成镜像元数据
-        id: meta
+      - name: 生成镜像标签
+        id: tags
         uses: docker/metadata-action@v5
         with:
           images: beijixingxing/hajimi
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ steps.version.outputs.version }}
-          flavor: |
-            latest=false
+            type=raw,value=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || steps.version.outputs.version }}
 
       - name: 构建推送镜像
         uses: docker/build-push-action@v5
@@ -215,23 +184,13 @@ jobs:
           file: docker_build/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          no-cache: true  # 禁用缓存
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: ${{ steps.tags.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 镜像验证
-        timeout-minutes: 5
+      - name: 构建完成通知
+        if: ${{ always() }}
         run: |
-          echo "🔍 开始验证镜像内容..."
-          docker pull beijixingxing/hajimi:${{ steps.version.outputs.version }}
-          
-          echo "镜像内版本文件内容："
-          docker run --rm beijixingxing/hajimi:${{ steps.version.outputs.version }} cat /app/version.txt
-          
-          if ! docker run --rm beijixingxing/hajimi:${{ steps.version.outputs.version }} grep -q "version=${{ steps.version.outputs.raw_version }}" /app/version.txt; then
-            echo "::error::镜像版本不匹配！"
-            exit 1
-          fi
-          echo "✅ 镜像验证通过"
+          echo "Docker镜像构建推送完成"
+          echo "标签: ${{ steps.tags.outputs.tags }}"
