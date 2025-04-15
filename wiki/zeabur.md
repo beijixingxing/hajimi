@@ -47,7 +47,7 @@ TZ=Asia/Shanghai
 ![13](./img/zeabur/13.png)
 ![14](./img/zeabur/14.png)
 ## 部署完毕
-![15](./img/zeabur/15.png)
+
 ### 注意事项：
 
 1. 若酒馆和Gemini轮询没有同时搭建在zeabur服务器
@@ -55,6 +55,6 @@ TZ=Asia/Shanghai
 
 2. 若酒馆和Gemini轮询部署在同一个zeabur服务器
    - 则反代地址为`http://主机:7860/v1`
-   - 主机为：
+   - 主机为：![15](./img/zeabur/15.png)
 
 3. 酒馆内API秘钥即为`PASSWORD=your_password`中你填写的内容
