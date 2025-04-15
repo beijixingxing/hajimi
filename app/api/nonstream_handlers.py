@@ -180,6 +180,6 @@ async def process_nonstream_request(
             raise
     except Exception as e:
         # 其他异常，返回None以便并发请求可以继续尝试其他密钥
-        log('error', f"非流式请求异常: ", 
+        log('error', f"非流式请求异常: {e.status_code}", 
             extra={'key': current_api_key[:8], 'request_type': request_type, 'model': chat_request.model})
         return (None, "error")
