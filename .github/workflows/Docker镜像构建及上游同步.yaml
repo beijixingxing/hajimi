@@ -39,7 +39,7 @@ jobs:
       - name: 读取当前版本
         id: current_version
         run: |
-          CURRENT_VERSION=$(grep -oP 'version=\K.*' version.txt)
+          CURRENT_VERSION=$(grep -oP 'version\s*=\s*["\x27]?\K[^"\x27]*' version.txt)
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "当前版本: $CURRENT_VERSION"
 
@@ -47,7 +47,7 @@ jobs:
         id: upstream_version
         run: |
           UPSTREAM_RAW=$(curl -s https://raw.githubusercontent.com/wyeeeee/hajimi/main/version.txt)
-          UPSTREAM_VERSION=$(echo "$UPSTREAM_RAW" | grep -oP 'version=\K.*')
+          UPSTREAM_VERSION=$(echo "$UPSTREAM_RAW" | grep -oP 'version\s*=\s*["\x27]?\K[^"\x27]*')
           echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
           echo "上游版本: $UPSTREAM_VERSION"
 
@@ -80,7 +80,6 @@ jobs:
           cp -r /tmp/workflow_backup/* .github/workflows/
           git add .github/workflows/
           git commit -m "恢复工作流文件" || echo "没有工作流文件变更"
-          # 强制推送以确保覆盖上游可能的变更
           git push origin main --force
           echo "工作流文件已恢复"
 
@@ -112,23 +111,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: src
+          fetch-depth: 0
 
-      - name: 验证同步后版本
+      - name: 验证版本文件
         run: |
           cd src
-          echo "当前版本: $(grep -oP 'version=\K.*' version.txt)"
           if [ ! -f version.txt ]; then
             echo "::error::version.txt 文件不存在"
             exit 1
           fi
+          echo "version.txt内容:"
+          cat version.txt
 
       - name: 读取版本号
         id: version
         run: |
           cd src
-          VERSION=$(grep -oP 'version=\K.*' version.txt)
-          echo "version=v$VERSION" >> $GITHUB_OUTPUT
-          echo "镜像版本: v$VERSION"
+          RAW_VERSION=$(grep -oP 'version\s*=\s*["\x27]?\K[^"\x27]*' version.txt)
+          SANITIZED_VERSION=$(echo "$RAW_VERSION" | tr -d '"'"'")
+          echo "version=v$SANITIZED_VERSION" >> $GITHUB_OUTPUT
+          echo "镜像版本: v$SANITIZED_VERSION"
 
       - name: 压缩应用文件
         run: |
@@ -166,6 +168,8 @@ jobs:
               startsWith(github.ref, 'refs/tags/') && github.ref_name 
               || steps.version.outputs.version 
             }}
+          flavor: |
+            latest=false
 
       - name: 构建推送镜像
         uses: docker/build-push-action@v5
