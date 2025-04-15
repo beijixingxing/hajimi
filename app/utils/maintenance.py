@@ -3,7 +3,6 @@ import sys,asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # 替换为异步调度器
 from app.utils.logging import log
 from app.utils.stats import clean_expired_stats
-from app.config import api_call_stats
 from app.utils import check_version
 from zoneinfo import ZoneInfo
 from app.config import settings
@@ -56,7 +55,7 @@ def schedule_cache_cleanup(response_cache_manager, active_requests_manager):
     scheduler.add_job(response_cache_manager.clean_expired, 'interval', minutes=1)
     scheduler.add_job(active_requests_manager.clean_completed, 'interval', seconds=30)
     scheduler.add_job(active_requests_manager.clean_long_running, 'interval', minutes=5, args=[300])
-    scheduler.add_job(clean_expired_stats, 'interval', minutes=5, args=[api_call_stats])
+    scheduler.add_job(clean_expired_stats, 'interval', minutes=5, args=[settings.api_call_stats])
     scheduler.add_job(check_version, 'interval', hours=4)
     scheduler.add_job(api_call_stats_clean, 'cron', hour=15,minute=0) 
     scheduler.start()

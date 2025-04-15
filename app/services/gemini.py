@@ -11,12 +11,8 @@ import logging
 import secrets
 import string
 from app.utils import format_log_message
-from app.config import settings
-from app.config.settings import (    
-    RANDOM_STRING,
-    RANDOM_STRING_LENGTH,
-    search
-)
+import app.config.settings as settings
+
 from app.utils.logging import log
 
 def generate_secure_random_string(length):
@@ -131,7 +127,7 @@ class GeminiClient:
     # 请求参数处理
     def _prepare_request_data(self, request, contents, safety_settings, system_instruction,model):
         api_version = "v1alpha" if "think" in request.model else "v1beta"
-        if search["search_mode"] and model.endswith("-search"):
+        if settings.search["search_mode"] and model.endswith("-search"):
             extra_log={'key': self.api_key[:8], 'model':model}
             log('INFO', "开启联网搜索模式", extra=extra_log)
             data = {
@@ -346,9 +342,9 @@ class GeminiClient:
             # 只有当search_mode为真且模型名称以-search结尾时，才添加搜索提示
             if settings.search["search_mode"] and model and model.endswith("-search"):
                 gemini_history.insert(len(gemini_history)-2,{'role': 'user', 'parts': [{'text':settings.search["search_prompt"]}]})
-            if RANDOM_STRING:
-                gemini_history.insert(1,{'role': 'user', 'parts': [{'text': generate_secure_random_string(RANDOM_STRING_LENGTH)}]})
-                gemini_history.insert(len(gemini_history)-1,{'role': 'user', 'parts': [{'text': generate_secure_random_string(RANDOM_STRING_LENGTH)}]})
+            if settings.RANDOM_STRING:
+                gemini_history.insert(1,{'role': 'user', 'parts': [{'text': generate_secure_random_string(settings.RANDOM_STRING_LENGTH)}]})
+                gemini_history.insert(len(gemini_history)-1,{'role': 'user', 'parts': [{'text': generate_secure_random_string(settings.RANDOM_STRING_LENGTH)}]})
                 log_msg = format_log_message('INFO', "伪装消息成功")
             return gemini_history, {"parts": [{"text": system_instruction_text}]}
 

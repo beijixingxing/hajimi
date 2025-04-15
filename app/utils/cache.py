@@ -4,9 +4,6 @@ import json
 from typing import Dict, Any, Optional
 import logging
 from app.utils.logging import log
-from app.config.settings import (
-    api_call_stats
-)
 logger = logging.getLogger("my_logger")
 
 class ResponseCacheManager:

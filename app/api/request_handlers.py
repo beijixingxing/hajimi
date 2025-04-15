@@ -8,7 +8,7 @@ from app.services import GeminiClient
 from app.utils import handle_api_error
 from app.utils.logging import log
 from .nonstream_handlers import process_nonstream_request
-from app.config.settings import CONCURRENT_REQUESTS, INCREASE_CONCURRENT_ON_FAILURE, MAX_CONCURRENT_REQUESTS
+import app.config.settings as settings
 
 # 请求处理函数
 async def process_request(
@@ -35,7 +35,7 @@ async def process_request(
     # 重置已尝试的密钥
     key_manager.reset_tried_keys_for_request()
     # 设置初始并发数
-    current_concurrent = CONCURRENT_REQUESTS
+    current_concurrent = settings.CONCURRENT_REQUESTS
     
     # 获取所有可用的API密钥
     all_keys = key_manager.api_keys.copy()
@@ -114,7 +114,7 @@ async def process_request(
         # 如果所有请求都失败或返回空响应，增加并发数并继续尝试
         if not success and all_keys:
             # 增加并发数，但不超过最大并发数
-            current_concurrent = min(current_concurrent + INCREASE_CONCURRENT_ON_FAILURE, MAX_CONCURRENT_REQUESTS)
+            current_concurrent = min(current_concurrent + settings.INCREASE_CONCURRENT_ON_FAILURE, settings.MAX_CONCURRENT_REQUESTS)
             log('info', f"所有并发请求失败或返回空响应，增加并发数至: {current_concurrent}", 
                 extra={'request_type': request_type, 'model': chat_request.model})
     

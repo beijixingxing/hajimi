@@ -7,24 +7,6 @@ from app.utils import (
     ActiveRequestsManager,
     clean_expired_stats
 )
-from app.config.settings import (
-    API_KEY_DAILY_LIMIT,
-    FAKE_STREAMING,
-    FAKE_STREAMING_INTERVAL,
-    RANDOM_STRING,
-    RANDOM_STRING_LENGTH,
-    MAX_REQUESTS_PER_MINUTE,
-    MAX_REQUESTS_PER_DAY_PER_IP,
-    CACHE_EXPIRY_TIME,
-    MAX_CACHE_ENTRIES,
-    REMOVE_CACHE_AFTER_USE,
-    ENABLE_RECONNECT_DETECTION,
-    version,
-    search,
-    CONCURRENT_REQUESTS,
-    INCREASE_CONCURRENT_ON_FAILURE,
-    MAX_CONCURRENT_REQUESTS
-)
 import app.config.settings as settings
 from app.services import GeminiClient
 from app.utils.auth import verify_password
@@ -104,13 +86,13 @@ async def get_dashboard_data():
                 model_stats[model] = model_calls
         
         # 计算使用百分比
-        usage_percent = (calls_24h / API_KEY_DAILY_LIMIT) * 100 if API_KEY_DAILY_LIMIT > 0 else 0
+        usage_percent = (calls_24h / settings.API_KEY_DAILY_LIMIT) * 100 if settings.API_KEY_DAILY_LIMIT > 0 else 0
         
         # 添加到结果列表
         api_key_stats.append({
             'api_key': api_key_id,
             'calls_24h': calls_24h,
-            'limit': API_KEY_DAILY_LIMIT,
+            'limit': settings.API_KEY_DAILY_LIMIT,
             'usage_percent': round(usage_percent, 2),
             'model_stats': model_stats  # 添加按模型分类的统计数据
         })
@@ -158,39 +140,39 @@ async def get_dashboard_data():
         "logs": recent_logs,
         "api_key_stats": api_key_stats,
         # 添加配置信息
-        "max_requests_per_minute": MAX_REQUESTS_PER_MINUTE,
-        "max_requests_per_day_per_ip": MAX_REQUESTS_PER_DAY_PER_IP,
+        "max_requests_per_minute": settings.MAX_REQUESTS_PER_MINUTE,
+        "max_requests_per_day_per_ip": settings.MAX_REQUESTS_PER_DAY_PER_IP,
         # 添加版本信息
-        "local_version": version["local_version"],
-        "remote_version": version["remote_version"],
-        "has_update": version["has_update"],
+        "local_version": settings.version["local_version"],
+        "remote_version": settings.version["remote_version"],
+        "has_update": settings.version["has_update"],
         # 添加流式响应配置
-        "fake_streaming": FAKE_STREAMING,
-        "fake_streaming_interval": FAKE_STREAMING_INTERVAL,
+        "fake_streaming": settings.FAKE_STREAMING,
+        "fake_streaming_interval": settings.FAKE_STREAMING_INTERVAL,
         # 添加随机字符串配置
-        "random_string": RANDOM_STRING,
-        "random_string_length": RANDOM_STRING_LENGTH,
+        "random_string": settings.RANDOM_STRING,
+        "random_string_length": settings.RANDOM_STRING_LENGTH,
         # 添加联网搜索配置
-        "search_mode": search["search_mode"],
-        "search_prompt": search["search_prompt"],
+        "search_mode": settings.search["search_mode"],
+        "search_prompt": settings.search["search_prompt"],
         # 添加缓存信息
         "cache_entries": total_cache,
         "valid_cache": valid_cache,
         "expired_cache": total_cache - valid_cache,
-        "cache_expiry_time": CACHE_EXPIRY_TIME,
-        "max_cache_entries": MAX_CACHE_ENTRIES,
+        "cache_expiry_time": settings.CACHE_EXPIRY_TIME,
+        "max_cache_entries": settings.MAX_CACHE_ENTRIES,
         "cache_by_model": cache_by_model,
         "request_history_count": history_count,
-        "enable_reconnect_detection": ENABLE_RECONNECT_DETECTION,
-        "remove_cache_after_use": REMOVE_CACHE_AFTER_USE,
+        "enable_reconnect_detection": settings.ENABLE_RECONNECT_DETECTION,
+        "remove_cache_after_use": settings.REMOVE_CACHE_AFTER_USE,
         # 添加活跃请求池信息
         "active_count": active_count,
         "active_done": active_done,
         "active_pending": active_pending,
         # 添加并发请求配置
-        "concurrent_requests": CONCURRENT_REQUESTS,
-        "increase_concurrent_on_failure": INCREASE_CONCURRENT_ON_FAILURE,
-        "max_concurrent_requests": MAX_CONCURRENT_REQUESTS
+        "concurrent_requests": settings.CONCURRENT_REQUESTS,
+        "increase_concurrent_on_failure": settings.INCREASE_CONCURRENT_ON_FAILURE,
+        "max_concurrent_requests": settings.MAX_CONCURRENT_REQUESTS
     }
 
 @dashboard_router.post("/reset-stats")

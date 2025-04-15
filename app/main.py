@@ -19,26 +19,7 @@ from app.utils import (
     log
 )
 from app.api import router, init_router, dashboard_router, init_dashboard_router
-from app.config.settings import (
-    FAKE_STREAMING,
-    FAKE_STREAMING_INTERVAL,
-    RANDOM_STRING,
-    RANDOM_STRING_LENGTH,
-    PASSWORD,
-    MAX_REQUESTS_PER_MINUTE,
-    MAX_REQUESTS_PER_DAY_PER_IP,
-    RETRY_DELAY,
-    MAX_RETRY_DELAY,
-    CACHE_EXPIRY_TIME,
-    MAX_CACHE_ENTRIES,
-    REMOVE_CACHE_AFTER_USE,
-    REQUEST_HISTORY_EXPIRY_TIME,
-    ENABLE_RECONNECT_DETECTION,
-    api_call_stats,
-    client_request_history,
-    version,
-    API_KEY_DAILY_LIMIT
-)
+import app.config.settings as settings
 from app.config.safety import SAFETY_SETTINGS, SAFETY_SETTINGS_G2
 import os
 import json
@@ -68,9 +49,9 @@ response_cache = {}
 
 # 初始化缓存管理器，使用全局字典作为存储
 response_cache_manager = ResponseCacheManager(
-    expiry_time=CACHE_EXPIRY_TIME,
-    max_entries=MAX_CACHE_ENTRIES,
-    remove_after_use=REMOVE_CACHE_AFTER_USE,
+    expiry_time=settings.CACHE_EXPIRY_TIME,
+    max_entries=settings.MAX_CACHE_ENTRIES,
+    remove_after_use=settings.REMOVE_CACHE_AFTER_USE,
     cache_dict=response_cache
 )
 
@@ -219,11 +200,11 @@ async def startup_event():
         SAFETY_SETTINGS,
         SAFETY_SETTINGS_G2,
         current_api_key,
-        FAKE_STREAMING,
-        FAKE_STREAMING_INTERVAL,
-        PASSWORD,
-        MAX_REQUESTS_PER_MINUTE,
-        MAX_REQUESTS_PER_DAY_PER_IP
+        settings.FAKE_STREAMING,
+        settings.FAKE_STREAMING_INTERVAL,
+        settings.PASSWORD,
+        settings.MAX_REQUESTS_PER_MINUTE,
+        settings.MAX_REQUESTS_PER_DAY_PER_IP
     )
     
     # 初始化仪表盘路由器
@@ -241,11 +222,11 @@ async def startup_event():
         SAFETY_SETTINGS,
         SAFETY_SETTINGS_G2,
         current_api_key,
-        FAKE_STREAMING,
-        FAKE_STREAMING_INTERVAL,
-        PASSWORD,
-        MAX_REQUESTS_PER_MINUTE,
-        MAX_REQUESTS_PER_DAY_PER_IP
+        settings.FAKE_STREAMING,
+        settings.FAKE_STREAMING_INTERVAL,
+        settings.PASSWORD,
+        settings.MAX_REQUESTS_PER_MINUTE,
+        settings.MAX_REQUESTS_PER_DAY_PER_IP
     )
     
     # 初始化仪表盘路由器

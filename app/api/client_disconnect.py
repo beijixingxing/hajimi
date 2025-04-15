@@ -4,7 +4,6 @@ from fastapi import Request
 from app.models import ChatCompletionRequest
 from app.utils import create_error_response, update_api_call_stats
 from app.utils.logging import log
-from app.config.settings import api_call_stats
 import app.config.settings as settings
 # 客户端断开检测函数
 async def check_client_disconnect(http_request: Request, current_api_key: str, request_type: str, model: str):

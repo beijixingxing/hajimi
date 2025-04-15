@@ -1,3 +1,3 @@
 # 配置模块初始化文件
-from app.config.settings import *
+import app.config.settings as settings
 from app.config.safety import *

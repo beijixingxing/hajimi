@@ -1,5 +1,5 @@
 import os
-from app.config.settings import PASSWORD
+import app.config.settings as settings
 
 def verify_password(input_password):
     """
@@ -11,4 +11,4 @@ def verify_password(input_password):
     Returns:
         bool: 密码是否正确
     """
-    return input_password == PASSWORD 
+    return input_password == settings.PASSWORD 

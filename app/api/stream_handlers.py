@@ -8,7 +8,6 @@ from app.models import ChatCompletionRequest
 from app.services import GeminiClient
 from app.utils import handle_gemini_error, update_api_call_stats
 from app.utils.logging import log
-from app.config.settings import CONCURRENT_REQUESTS, INCREASE_CONCURRENT_ON_FAILURE, MAX_CONCURRENT_REQUESTS
 import app.config.settings as settings
 # 流式请求处理函数
 async def process_stream_request(
@@ -36,7 +35,7 @@ async def process_stream_request(
         random.shuffle(all_keys)  # 随机打乱密钥顺序
         
         # 设置初始并发数
-        current_concurrent = CONCURRENT_REQUESTS
+        current_concurrent = settings.CONCURRENT_REQUESTS
         
         # 如果可用密钥数量小于并发数，则使用所有可用密钥
         if len(all_keys) < current_concurrent:
@@ -144,7 +143,7 @@ async def process_stream_request(
             # 如果所有请求都失败或返回空响应，增加并发数并继续尝试
             if not found_success and all_keys:
                 # 增加并发数，但不超过最大并发数
-                current_concurrent = min(current_concurrent + INCREASE_CONCURRENT_ON_FAILURE, MAX_CONCURRENT_REQUESTS)
+                current_concurrent = min(current_concurrent + settings.INCREASE_CONCURRENT_ON_FAILURE, settings.MAX_CONCURRENT_REQUESTS)
                 log('info', f"所有假流式请求失败或返回空响应，增加并发数至: {current_concurrent}", 
                     extra={'request_type': 'stream', 'model': chat_request.model})
 
