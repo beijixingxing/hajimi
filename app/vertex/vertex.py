@@ -71,10 +71,10 @@ class CredentialManager:
         self.credentials_files = glob.glob(pattern)
         
         if not self.credentials_files:
-            log('warning', f"No credential files found in {self.credentials_dir}")
+            log('warning', f"没有找到 {self.credentials_dir} 目录下的凭证文件")
             return False
         
-        log('info', f"Found {len(self.credentials_files)} credential files: {[os.path.basename(f) for f in self.credentials_files]}")
+        log('info', f"找到 {len(self.credentials_files)} 个凭证文件: {[os.path.basename(f) for f in self.credentials_files]}")
         return True
     
     def refresh_credentials_list(self):
@@ -84,7 +84,7 @@ class CredentialManager:
         new_count = len(self.credentials_files)
         
         if old_count != new_count:
-            log('info', f"Credential files updated: {old_count} -> {new_count}")
+            log('info', f"凭证文件已更新: {old_count} -> {new_count}")
         
         return len(self.credentials_files) > 0
     
@@ -100,15 +100,15 @@ class CredentialManager:
         try:
             credentials = service_account.Credentials.from_service_account_file(file_path,scopes=['https://www.googleapis.com/auth/cloud-platform'])
             project_id = credentials.project_id
-            log('info', f"Loaded credentials from {file_path} for project: {project_id}")
+            log('info', f"从 {file_path} 加载凭证文件用于项目: {project_id}")
             self.credentials = credentials
             self.project_id = project_id
             return credentials, project_id
         except Exception as e:
-            log('error', f"Error loading credentials from {file_path}: {e}")
+            log('error', f"从 {file_path} 加载凭证文件时发生错误: {e}")
             # Try the next file if this one fails
             if len(self.credentials_files) > 1:
-                log('info', "Trying next credential file...")
+                log('info', "尝试下一个凭证文件...")
                 return self.get_next_credentials()
             return None, None
     
@@ -123,15 +123,15 @@ class CredentialManager:
         try:
             credentials = service_account.Credentials.from_service_account_file(file_path,scopes=['https://www.googleapis.com/auth/cloud-platform'])
             project_id = credentials.project_id
-            log('info', f"Loaded credentials from {file_path} for project: {project_id}")
+            log('info', f"从 {file_path} 加载凭证文件用于项目: {project_id}")
             self.credentials = credentials
             self.project_id = project_id
             return credentials, project_id
         except Exception as e:
-            log('error', f"Error loading credentials from {file_path}: {e}")
+            log('error', f"从 {file_path} 加载凭证文件时发生错误: {e}")
             # Try another random file if this one fails
             if len(self.credentials_files) > 1:
-                log('info', "Trying another credential file...")
+                log('info', "尝试另一个凭证文件...")
                 return self.get_random_credentials()
             return None, None
 
@@ -193,9 +193,9 @@ def init_vertex_ai():
                     missing_fields = [field for field in required_fields if field not in credentials_info]
                     if missing_fields:
                         # print(f"ERROR: Missing required fields in credentials JSON: {missing_fields}") # Removed
-                        raise ValueError(f"Credentials JSON missing required fields: {missing_fields}")
+                        raise ValueError(f"Credentials JSON 缺少必需字段: {missing_fields}")
                 except json.JSONDecodeError as json_err:
-                    log('error', f"ERROR: Failed to parse GOOGLE_CREDENTIALS_JSON as JSON: {json_err}")
+                    log('error', f"ERROR: 无法将 GOOGLE_CREDENTIALS_JSON 解析为 JSON: {json_err}")
                     raise
 
                 # Create credentials from the parsed JSON info (json.loads should handle \n)
@@ -206,65 +206,65 @@ def init_vertex_ai():
                         scopes=['https://www.googleapis.com/auth/cloud-platform']
                     )
                     project_id = credentials.project_id
-                    log('info', f"Successfully created credentials object for project: {project_id}")
+                    log('info', f"成功创建凭证对象用于项目: {project_id}")
                 except Exception as cred_err:
-                    log('error', f"ERROR: Failed to create credentials from service account info: {cred_err}")
+                    log('error', f"ERROR: 无法从服务账户信息创建凭证: {cred_err}")
                     raise
                 
                 # Initialize the client with the credentials
                 try:
                     client = genai.Client(vertexai=True, credentials=credentials, project=project_id, location="us-central1")
-                    log('info', f"Initialized Vertex AI using GOOGLE_CREDENTIALS_JSON env var for project: {project_id}")
+                    log('info', f"使用 GOOGLE_CREDENTIALS_JSON 环境变量初始化 Vertex AI 用于项目: {project_id}")
                 except Exception as client_err:
-                    log('error', f"ERROR: Failed to initialize genai.Client: {client_err}")
+                    log('error', f"ERROR: 无法初始化 genai.Client: {client_err}")
                     raise
                 return True
             except Exception as e:
-                log('error', f"Error loading credentials from GOOGLE_CREDENTIALS_JSON: {e}")
-                # Fall through to other methods if this fails
+                log('error', f"从 GOOGLE_CREDENTIALS_JSON 加载凭证时发生错误: {e}")
+                # 如果这里失败，继续尝试其他方法
 
         # Priority 2: Try to use the credential manager to get credentials from files
-        log('info', f"Trying credential manager (directory: {credential_manager.credentials_dir})")
+        log('info', f"尝试使用凭证管理器从文件获取凭证 (目录: {credential_manager.credentials_dir})")
         credentials, project_id = credential_manager.get_next_credentials()
 
         if credentials and project_id:
             try:
                 client = genai.Client(vertexai=True, credentials=credentials, project=project_id, location="us-central1")
-                log('info', f"Initialized Vertex AI using Credential Manager for project: {project_id}")
+                log('info', f"使用凭证管理器初始化 Vertex AI 用于项目: {project_id}")
                 return True
             except Exception as e:
-                log('error', f"ERROR: Failed to initialize client with credentials from Credential Manager: {e}")
+                log('error', f"ERROR: 无法从凭证管理器初始化 client: {e}")
         
         # Priority 3: Fall back to GOOGLE_APPLICATION_CREDENTIALS environment variable (file path)
         file_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
         if file_path:
-            log('info', f"Checking GOOGLE_APPLICATION_CREDENTIALS file path: {file_path}")
+            log('info', f"检查 GOOGLE_APPLICATION_CREDENTIALS 文件路径: {file_path}")
             if os.path.exists(file_path):
                 try:
-                    log('info', f"File exists, attempting to load credentials")
+                    log('info', f"文件存在, 尝试加载凭证")
                     credentials = service_account.Credentials.from_service_account_file(
                         file_path,
                         scopes=['https://www.googleapis.com/auth/cloud-platform']
                     )
                     project_id = credentials.project_id
-                    log('info', f"Successfully loaded credentials from file for project: {project_id}")
+                    log('info', f"成功从文件加载凭证用于项目: {project_id}")
                     
                     try:
                         client = genai.Client(vertexai=True, credentials=credentials, project=project_id, location="us-central1")
                         log('info', f"Initialized Vertex AI using GOOGLE_APPLICATION_CREDENTIALS file path for project: {project_id}")
                         return True
                     except Exception as client_err:
-                        log('error', f"ERROR: Failed to initialize client with credentials from file: {client_err}")
+                        log('error', f"ERROR: 无法从文件初始化 client: {client_err}")
                 except Exception as e:
-                    log('error', f"ERROR: Failed to load credentials from GOOGLE_APPLICATION_CREDENTIALS path {file_path}: {e}")
+                    log('error', f"ERROR: 从 GOOGLE_APPLICATION_CREDENTIALS 路径 {file_path} 加载凭证时发生错误: {e}")
             else:
-                log('error', f"ERROR: GOOGLE_APPLICATION_CREDENTIALS file does not exist at path: {file_path}")
+                log('error', f"ERROR: GOOGLE_APPLICATION_CREDENTIALS 文件不存在于路径: {file_path}")
         
-        # If none of the methods worked
-        log('error', f"ERROR: No valid credentials found. Tried GOOGLE_CREDENTIALS_JSON, Credential Manager ({credential_manager.credentials_dir}), and GOOGLE_APPLICATION_CREDENTIALS.")
+        # 如果没有任何方法成功
+        log('error', f"ERROR: 没有找到有效的凭证。尝试了 GOOGLE_CREDENTIALS_JSON, 凭证管理器 ({credential_manager.credentials_dir}), 和 GOOGLE_APPLICATION_CREDENTIALS.")
         return False
     except Exception as e:
-        log('error', f"Error initializing authentication: {e}")
+        log('error', f"初始化认证时发生错误: {e}")
         return False
 
 
@@ -493,7 +493,7 @@ def create_gemini_prompt(messages: List[OpenAIMessage]) -> Union[types.Content, 
         # Add to our list
         gemini_messages.append(content)
     
-    log('info', f"Converted to {len(gemini_messages)} Gemini messages")
+    log('info', f"转换为 {len(gemini_messages)} 个 Gemini 消息")
     
     # If there's only one message, return it directly
     if len(gemini_messages) == 1:
@@ -506,12 +506,12 @@ def create_gemini_prompt(messages: List[OpenAIMessage]) -> Union[types.Content, 
 
 def create_encrypted_gemini_prompt(messages: List[OpenAIMessage]) -> Union[types.Content, List[types.Content]]:
     """
-    Convert OpenAI messages to Gemini format with special encoding for the encrypt model.
-    This function URL-encodes user messages and adds specific system instructions.
+    将 OpenAI 消息转换为带有特殊编码的 Gemini 格式，用于加密模型。
+    此函数对用户消息进行 URL 编码并添加特定系统指令。
     """
-    log('info', "Creating encrypted Gemini prompt...")
+    log('info', "创建加密的 Gemini 提示...")
     
-    # Check if any message contains image content
+    # 检查是否任何消息包含图像内容
     has_images = False
     for message in messages:
         if isinstance(message.content, list):
@@ -632,8 +632,8 @@ Ready for your request."""
                 # For other assistant messages, keep as is
                 new_messages.append(message)
     
-    log('info', f"Created encrypted prompt with {len(new_messages)} messages")
-    # Now use the standard function to convert to Gemini format
+    log('info', f"创建加密的提示, 包含 {len(new_messages)} 条消息")
+    # 现在使用标准函数转换为 Gemini 格式
     return create_gemini_prompt(new_messages)
 
 def create_generation_config(request: OpenAIRequest) -> Dict[str, Any]:
@@ -1019,7 +1019,7 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                 500, "Vertex AI client not initialized", "server_error"
             )
             return JSONResponse(status_code=500, content=error_response)
-        log('info', "Using globally initialized client.")
+        log('info', "使用全局初始化的 client.")
 
         # Common safety settings
         safety_settings = [
@@ -1081,8 +1081,8 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
             if hasattr(response, 'text') and response.text:
                 return True
                 
-            # If we got here, the response is invalid
-            log('error', f"Invalid response: No text content found in response structure: {str(response)[:200]}...")
+            # 如果到这里，响应无效
+            log('error', f"无效的响应: 在响应结构中没有找到文本内容: {str(response)[:200]}...")
             return False
 
 
@@ -1092,17 +1092,17 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
             
             # Log prompt structure
             if isinstance(prompt, list):
-                log('info', f"Prompt structure: {len(prompt)} messages")
+                log('info', f"提示结构: {len(prompt)} 条消息")
             elif isinstance(prompt, types.Content):
-                log('info', "Prompt structure: 1 message")
+                log('info', "提示结构: 1 条消息")
             else:
                 # Handle old format case (which returns str or list[Any])
                 if isinstance(prompt, str):
-                     log('info', "Prompt structure: String (old format)")
+                     log('info', "提示结构: 字符串 (旧格式)")
                 elif isinstance(prompt, list):
-                     log('info', f"Prompt structure: List[{len(prompt)}] (old format with images)")
+                     log('info', f"提示结构: 列表[{len(prompt)}] (旧格式, 包含图像)")
                 else:
-                     log('info', "Prompt structure: Unknown format")
+                     log('info', "提示结构: 未知格式")
 
 
             if request.stream:
@@ -1115,7 +1115,7 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                     first_chunk_received = False
                     try:
                         for candidate_index in range(candidate_count):
-                            log('info', f"Sending streaming request to Gemini API (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
+                            log('info', f"向 Gemini API 发送流式请求 (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
                             responses = client.models.generate_content_stream(
                                 model=model_name,
                                 contents=prompt,
@@ -1154,7 +1154,7 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
             else:
                 # Non-streaming call
                 try:
-                    log('info', f"Sending request to Gemini API (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
+                    log('info', f"向 Gemini API 发送请求 (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
                     response = client.models.generate_content(
                         model=model_name,
                         contents=prompt,
@@ -1166,9 +1166,9 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                     openai_response = convert_to_openai_format(response, request.model)
                     return JSONResponse(content=openai_response)
                 except Exception as generate_error:
-                    error_msg = f"Error generating content (Model: {model_name}, Format: {prompt_func.__name__}): {str(generate_error)}"
+                    error_msg = f"生成内容时发生错误 (Model: {model_name}, Format: {prompt_func.__name__}): {str(generate_error)}"
                     log('error', error_msg)
-                    # Raise error to signal failure for retry logic
+                    # 引发错误以信号失败以进行重试逻辑
                     raise generate_error
 
 
@@ -1176,8 +1176,8 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
         last_error = None
 
         if is_auto_model:
-            log('info', f"Processing auto model: {request.model}")
-            # Define encryption instructions for system_instruction
+            log('info', f"处理自动模型: {request.model}")
+            # 定义系统指令以进行系统指令
             encryption_instructions = [
                 "// AI Assistant Configuration //",
                 "STRICT OPERATING PROTOCOL:",
@@ -1194,15 +1194,15 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
             ]
 
             for i, attempt in enumerate(attempts):
-                log('info', f"Attempt {i+1}/{len(attempts)} using '{attempt['name']}' mode...")
+                log('info', f"尝试 {i+1}/{len(attempts)} 使用 '{attempt['name']}' 模式...")
                 current_config = attempt["config_modifier"](generation_config.copy())
                 
                 try:
                     result = await make_gemini_call(attempt["model"], attempt["prompt_func"], current_config)
                     
-                    # For streaming, the result is StreamingResponse, success is determined inside make_gemini_call raising an error on failure
-                    # For non-streaming, if make_gemini_call doesn't raise, it's successful
-                    log('info', f"Attempt {i+1} ('{attempt['name']}') successful.")
+                    # 对于流式，结果是 StreamingResponse，成功是在 make_gemini_call 内部引发错误时确定的
+                    # 对于非流式，如果 make_gemini_call 不引发，则成功
+                    log('info', f"访问 {i+1} ('{attempt['name']}') 成功.")
                     return result
                 except (Exception, ExceptionGroup) as e: # Catch ExceptionGroup as well
                     actual_error = e
@@ -1214,19 +1214,19 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                              actual_error = ValueError("Empty ExceptionGroup caught") # Fallback
 
                     last_error = actual_error # Store the original or extracted error
-                    log('info', f"DEBUG: Caught exception in retry loop: type={type(e)}, potentially wrapped. Using: type={type(actual_error)}, value={repr(actual_error)}") # Updated debug log
-                    log('info', f"Attempt {i+1} ('{attempt['name']}') failed: {actual_error}") # Log the actual error
+                    log('info', f"DEBUG: 在重试循环中捕获异常: type={type(e)}, 可能被包装. 使用: type={type(actual_error)}, value={repr(actual_error)}") # 更新调试日志
+                    log('info', f"尝试 {i+1} ('{attempt['name']}') 失败: {actual_error}") # 记录实际错误
                     if i < len(attempts) - 1:
-                        log('info', "Waiting 1 second before next attempt...")
+                        log('info', "等待 1 秒再进行下一次尝试...")
                         await asyncio.sleep(1) # Use asyncio.sleep for async context
                     else:
                         log('error', "All attempts failed.")
             
-            # If all attempts failed, return the last error
-            error_msg = f"All retry attempts failed for model {request.model}. Last error: {str(last_error)}"
+            # 如果所有尝试都失败，返回最后一个错误
+            error_msg = f"所有重试尝试失败用于模型 {request.model}. 最后一个错误: {str(last_error)}"
             error_response = create_openai_error_response(500, error_msg, "server_error")
-            # If the last attempt was streaming and failed, the error response is already yielded by the generator.
-            # If non-streaming failed last, return the JSON error.
+            # 如果最后一个尝试是流式且失败，错误响应已经由生成器产生。
+            # 如果非流式失败，返回 JSON 错误。
             if not request.stream:
                  return JSONResponse(status_code=500, content=error_response)
             else:
@@ -1252,12 +1252,12 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
             current_config = generation_config.copy()
 
             if is_grounded_search:
-                log('info', f"Using grounded search for model: {request.model}")
+                log('info', f"使用基于搜索的模型: {request.model}")
                 search_tool = types.Tool(google_search=types.GoogleSearch())
                 current_config["tools"] = [search_tool]
             elif is_encrypted_model:
-                log('info', f"Using encrypted prompt with system_instruction for model: {request.model}")
-                # Define encryption instructions for system_instruction
+                log('info', f"使用带有系统指令的加密提示: {request.model}")
+                # 定义系统指令以进行系统指令
                 encryption_instructions = [
                     "// AI Assistant Configuration //",
                     "STRICT OPERATING PROTOCOL:",
@@ -1273,24 +1273,24 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                 result = await make_gemini_call(current_model_name, current_prompt_func, current_config)
                 return result
             except Exception as e:
-                 # Handle potential errors for non-auto models
-                 error_msg = f"Error processing model {request.model}: {str(e)}"
+                 # 处理非自动模型可能出现的错误
+                 error_msg = f"处理模型 {request.model} 时发生错误: {str(e)}"
                  log('error', error_msg)
                  error_response = create_openai_error_response(500, error_msg, "server_error")
-                 # Similar to auto-fail case, handle stream vs non-stream error return
+                 # 类似于自动失败的情况，处理流式和非流式错误返回
                  if not request.stream:
                      return JSONResponse(status_code=500, content=error_response)
                  else:
-                     # Let the StreamingResponse handle yielding the error
-                     return result # Return the StreamingResponse object containing the failing generator
+                     # 让 StreamingResponse 处理产生错误
+                     return result # 返回包含失败生成器的 StreamingResponse 对象
 
 
     except Exception as e:
-        # Catch-all for unexpected errors during setup or logic flow
-        error_msg = f"Unexpected error processing request: {str(e)}"
+        # 捕获所有意外错误
+        error_msg = f"处理请求时发生意外错误: {str(e)}"
         log('error', error_msg)
         error_response = create_openai_error_response(500, error_msg, "server_error")
-        # Ensure we return a JSON response even for stream requests if error happens early
+        # 确保即使对于流式请求，如果早期发生错误，也返回 JSON 响应
         return JSONResponse(status_code=500, content=error_response)
 
 # --- Need to import asyncio ---
