@@ -416,15 +416,15 @@ def create_gemini_prompt_old(messages: List[OpenAIMessage]) -> Union[str, List[A
 
 def create_gemini_prompt(messages: List[OpenAIMessage]) -> Union[types.Content, List[types.Content]]:
     """
-    Convert OpenAI messages to Gemini format.
-    Returns a Content object or list of Content objects as required by the Gemini API.
+    将 OpenAI 消息转换为 Gemini 格式。
+    返回一个 Content 对象或 Content 对象列表，作为 Gemini API 所需的格式。
     """
-    log('info', "Converting OpenAI messages to Gemini format...")
+    log('info', "转换 OpenAI 消息为 Gemini 格式...")
     
-    # Create a list to hold the Gemini-formatted messages
+    # 创建一个列表来保存 Gemini 格式的消息
     gemini_messages = []
     
-    # Process all messages in their original order
+    # 按原始顺序处理所有消息
     for idx, message in enumerate(messages):
         # Map OpenAI roles to Gemini roles
         role = message.role
