@@ -14,8 +14,8 @@ FAKE_STREAMING_INTERVAL = float(os.environ.get("FAKE_STREAMING_INTERVAL", "1"))
 #随机字符串
 RANDOM_STRING = os.environ.get("RANDOM_STRING", "true").lower() in ["true", "1", "yes"]
 RANDOM_STRING_LENGTH = int(os.environ.get("RANDOM_STRING_LENGTH", "5"))
-
-
+# 是否启用Vertex AI
+ENABLE_VERTEX = os.environ.get("ENABLE_VERTEX", "false").lower() in ["true", "1", "yes"]
 # 日志配置
 logging.getLogger("uvicorn").disabled = True
 logging.getLogger("uvicorn.access").disabled = True

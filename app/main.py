@@ -19,6 +19,8 @@ from app.utils import (
     log
 )
 from app.api import router, init_router, dashboard_router, init_dashboard_router
+from app.vertex.vertex import router as vertex_router
+from app.vertex.vertex import init_vertex_ai
 import app.config.settings as settings
 from app.config.safety import SAFETY_SETTINGS, SAFETY_SETTINGS_G2
 import os
@@ -31,7 +33,6 @@ import sys
 import pathlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
-
 # 设置模板目录
 BASE_DIR = pathlib.Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -129,7 +130,9 @@ sys.excepthook = handle_exception
 @app.on_event("startup")
 async def startup_event():
     log('info', "Starting Gemini API proxy...")
-    
+    if settings.ENABLE_VERTEX:
+        init_vertex_ai()
+        log('info', "初始化Vertex AI")
     # 启动缓存清理定时任务
     schedule_cache_cleanup(response_cache_manager, active_requests_manager)
     
@@ -249,7 +252,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 # --------------- 路由 ---------------
 
 # 包含API路由
-app.include_router(router)
+if settings.ENABLE_VERTEX:
+    app.include_router(vertex_router)
+else:
+    app.include_router(router)
 app.include_router(dashboard_router)
 
 # 挂载静态文件目录
