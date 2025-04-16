@@ -9,6 +9,8 @@
 - [termux部署的使用文档（手机使用）](./wiki/Termux.md) 感谢[@天命不又](https://github.com/tmby)编写
 - [zeabur部署的使用文档(需付费)](./wiki/zeabur.md) 感谢**墨舞ink**编写
 - [Claw Cloud部署的使用文档](./wiki/claw.md) 感谢[@IDeposit](https://github.com/IDeposit)编写
+- [HuggingFace单文件部署的使用文档](./wiki/hf-oneclick.md) 感谢[@任梓樂](https://github.com/rzline)编写
+
 ###  更新日志
 * v0.1.3
     * 应对谷歌加强封锁紧急更新，优化连接逻辑，减少错误发生
