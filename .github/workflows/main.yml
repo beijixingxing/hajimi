@@ -1,0 +1,56 @@
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:     # 支持手动触发
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install GitHub CLI
+      run: |
+        sudo apt update && sudo apt install -y curl
+        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        sudo apt update && sudo apt install -y gh
+
+    - name: Get version
+      id: version
+      run: |
+        VERSION=$(grep 'version=' version.txt | cut -d'=' -f2)
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: Add build timestamp
+      run: date +%s > app/build_timestamp.txt
+
+    - name: Create app.zip (flat structure)
+      run: |
+        cd app && zip -r ../app.zip .  # 使用`.`打包当前目录所有文件，不包含父目录
+
+    - name: Create release bundle
+      run: |
+        RELEASE_ZIP="hajimi-${{ steps.version.outputs.version }}.zip"
+        zip $RELEASE_ZIP app.zip Dockerfile requirements.txt version.txt
+        echo "RELEASE_ZIP=${RELEASE_ZIP}" >> $GITHUB_ENV
+
+    - name: Cleanup existing release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if gh release view "${{ steps.version.outputs.version }}"; then
+          gh release delete "${{ steps.version.outputs.version }}" --yes
+        fi
+
+    - name: Create new release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create "${{ steps.version.outputs.version }}" \
+          --title "hajimi-${{ steps.version.outputs.version }}" \
+          "${{ env.RELEASE_ZIP }}"
