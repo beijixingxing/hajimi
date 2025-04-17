@@ -1,7 +1,6 @@
 name: Docker镜像构建及上游同步
 
 on:
-  # 触发条件配置
   push:
     branches: [main]
     tags: ['v*.*.*']
@@ -13,12 +12,9 @@ permissions:
   contents: write       # 同步任务需要写权限
 
 jobs:
-  sync-fork:
-    name: 上游仓库同步
+  sync-and-build:
+    name: 上游同步并构建镜像
     runs-on: ubuntu-latest
-    outputs:
-      should_build: ${{ steps.build_control.outputs.should_build }}
-      latest_commit: ${{ steps.get_latest_commit.outputs.commit_hash }}
 
     steps:
       # ----------------------------
@@ -67,26 +63,24 @@ jobs:
         run: |
           if [ "${{ steps.current_version.outputs.current_version }}" != "${{ steps.upstream_version.outputs.upstream_version }}" ]; then
             echo "::notice::检测到版本变更（本地:${{ steps.current_version.outputs.current_version }} 上游:${{ steps.upstream_version.outputs.upstream_version }}）"
-            echo "need_sync=true" >> $GITHUB_OUTPUT
           else
-            echo "::notice::版本号相同，无需同步"
-            echo "need_sync=false" >> $GITHUB_OUTPUT
+            echo "::notice::版本号相同，但仍会构建最新代码"
           fi
 
       - name: 配置上游仓库
-        if: steps.version_check.outputs.need_sync == 'true'
+        if: steps.version_check.outputs.upstream_version != steps.current_version.outputs.current_version
         run: |
           git remote add upstream https://github.com/wyeeeee/hajimi.git || true
           git fetch upstream
 
       - name: 强制同步
-        if: steps.version_check.outputs.need_sync == 'true'
+        if: steps.version_check.outputs.upstream_version != steps.current_version.outputs.current_version
         run: |
           git reset --hard upstream/main
           echo "已完成代码同步"
 
-      - name: 恢复工作流文件
-        if: steps.version_check.outputs.need_sync == 'true'
+      - name：恢复工作流文件
+        if: steps.version_check.outputs.upstream_version != steps.current_version.outputs.current_version
         run: |
           cp -r /tmp/workflow_backup/workflows/ .github/
           git add .github/workflows/
@@ -94,55 +88,8 @@ jobs:
           git push origin main
           echo "工作流文件已恢复"
 
-      - name: 获取最新提交哈希
-        id: get_latest_commit
-        if: steps.version_check.outputs.need_sync == 'true'
-        run: |
-          LATEST_COMMIT=$(git rev-parse HEAD)
-          echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
-          echo "最新提交哈希: $LATEST_COMMIT"
-
       # ----------------------------
-      # 构建控制逻辑
-      # ----------------------------
-      - name: 设置构建控制标志
-        id: build_control
-        run: |
-          if [ "${{ steps.version_check.outputs.need_sync }}" == "true" ]; then
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_build=false" >> $GITHUB_OUTPUT
-          fi
-          echo "构建标志设置为: ${{ steps.build_control.outputs.should_build }}"
-
-  # =================================================================
-  # Docker镜像构建任务
-  # =================================================================
-  build-and-push:
-    name: 构建推送Docker镜像
-    needs: sync-fork
-    runs-on: ubuntu-latest
-    if: ${{ needs.sync-fork.outputs.should_build == 'true' }}
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      # ----------------------------
-      # 使用 sync-fork 的代码
-      # ----------------------------
-      - name: 检出同步后的代码
-        uses: actions/checkout@v4
-        with:
-          ref: main  # 确保检出的是主分支
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 使用 sync-fork 的最新提交
-        run: |
-          git fetch origin
-          git reset --hard ${{ needs.sync-fork.outputs.latest_commit }}
-          echo "已切换到最新同步提交: ${{ needs.sync-fork.outputs.latest_commit }}"
-
+      # 构建阶段
       - name: 验证同步后版本
         run: |
           echo "当前版本: $(grep -oP 'version=\K.*' version.txt)"
