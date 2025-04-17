@@ -13,11 +13,9 @@ permissions:
   contents: write       # 同步任务需要写权限
 
 jobs:
-  sync-fork:
-    name: 上游仓库同步
+  sync-and-build:
+    name: 上游同步并构建镜像
     runs-on: ubuntu-latest
-    outputs:
-      should_build: ${{ steps.build_control.outputs.should_build }}
 
     steps:
       # ----------------------------
@@ -66,92 +64,39 @@ jobs:
         run: |
           if [ "${{ steps.current_version.outputs.current_version }}" != "${{ steps.upstream_version.outputs.upstream_version }}" ]; then
             echo "::notice::检测到版本变更（本地:${{ steps.current_version.outputs.current_version }} 上游:${{ steps.upstream_version.outputs.upstream_version }}）"
-            echo "need_sync=true" >> $GITHUB_OUTPUT
+            SHOULD_SYNC=true
           else
             echo "::notice::版本号相同，无需同步"
-            echo "need_sync=false" >> $GITHUB_OUTPUT
+            SHOULD_SYNC=false
           fi
+          echo "should_sync=$SHOULD_SYNC" >> $GITHUB_ENV
 
       - name: 配置上游仓库
-        if: steps.version_check.outputs.need_sync == 'true'
+        if: env.should_sync == 'true'
         run: |
           git remote add upstream https://github.com/wyeeeee/hajimi.git || true
           git fetch upstream
 
       - name: 强制同步
-        if: steps.version_check.outputs.need_sync == 'true'
+        if: env.should_sync == 'true'
         run: |
           git reset --hard upstream/main
           echo "已完成代码同步"
 
       - name: 恢复工作流文件
-        if: steps.version_check.outputs.need_sync == 'true'
+        if: env.should_sync == 'true'
         run: |
           cp -r /tmp/workflow_backup/workflows/ .github/
           git add .github/workflows/
           git commit -m "恢复工作流文件" || echo "没有工作流文件变更"
-
-          # 尝试合并或 rebase
-          echo "正在尝试拉取远程分支的最新更改..."
-          git fetch origin
-          # 检查是否需要 rebase 或 merge
-          if git merge-base --is-ancestor origin/main main; then
-            echo "本地分支落后于远程分支，尝试 fast-forward 合并..."
-            git pull --ff-only origin main
-          else
-            echo "本地分支与远程分支分叉，尝试 rebase..."
-            git pull --rebase origin main
-          fi
-
-          # 如果 rebase 失败，提示用户手动解决冲突
-          if [ $? -ne 0 ]; then
-            echo "::error::Rebase 失败，请手动解决冲突后重试。"
-            exit 1
-          fi
-
-          # 推送更改
-          echo "正在推送更改到远程分支..."
           git push origin main || echo "推送失败，尝试强制推送..."
           git push origin main --force-with-lease || echo "强制推送失败，请检查分支状态。"
 
-          echo "工作流文件已恢复并推送"
-
       # ----------------------------
-      # 构建控制逻辑
+      # 构建阶段
       # ----------------------------
-      - name: 设置构建控制标志
-        id: build_control
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] || [ "${{ github.event_name }}" == "push" ]; then
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" == "schedule" ] && [ "${{ steps.version_check.outputs.need_sync }}" == "true" ]; then
-            echo "should_build=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_build=false" >> $GITHUB_OUTPUT
-          fi
-          echo "构建标志设置为: ${{ steps.build_control.outputs.should_build }}"
-
-  # =================================================================
-  # Docker镜像构建任务
-  # =================================================================
-  build-and-push:
-    name: 构建推送Docker镜像
-    needs: sync-fork
-    runs-on: ubuntu-latest
-    if: ${{ needs.sync-fork.outputs.should_build == 'true' }}
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
-        with:
-          path: src
-
       - name: 验证同步后版本
         run: |
-          cd src
           echo "当前版本: $(grep -oP 'version=\K.*' version.txt)"
           if [ ! -f version.txt ]; then
             echo "::error::version.txt 文件不存在"
@@ -161,7 +106,6 @@ jobs:
       - name: 读取版本号
         id: version
         run: |
-          cd src
           VERSION=$(grep -oP 'version=\K.*' version.txt)
           echo "version=v$VERSION" >> $GITHUB_OUTPUT
           echo "镜像版本: v$VERSION"
@@ -198,7 +142,7 @@ jobs:
           images: beijixingxing/hajimi
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.version }}
 
       - name: 构建推送镜像
         uses: docker/build-push-action@v5
