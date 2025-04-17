@@ -64,7 +64,7 @@ def init_router(
 
 # 自定义密码验证依赖
 async def custom_verify_password(request: Request):
-    await verify_password(request, PASSWORD)
+    await verify_password(request, settings.PASSWORD)
 
 # API路由
 @router.get("/v1/models", response_model=ModelList)
@@ -82,7 +82,9 @@ async def chat_completions(request: ChatCompletionRequest, http_request: Request
     client_ip = http_request.client.host if http_request.client else "unknown"
     # 请求前基本检查
     protect_from_abuse(
-        http_request, MAX_REQUESTS_PER_MINUTE, MAX_REQUESTS_PER_DAY_PER_IP)
+        http_request, 
+        settings.MAX_REQUESTS_PER_MINUTE, 
+        settings.MAX_REQUESTS_PER_DAY_PER_IP)
     if request.model not in GeminiClient.AVAILABLE_MODELS:
         log('error', "无效的模型", 
             extra={'model': request.model, 'status_code': 400})
@@ -98,8 +100,8 @@ async def chat_completions(request: ChatCompletionRequest, http_request: Request
             safety_settings,
             safety_settings_g2,
             settings.api_call_stats,
-            FAKE_STREAMING,
-            FAKE_STREAMING_INTERVAL
+            settings.FAKE_STREAMING,
+            settings.FAKE_STREAMING_INTERVAL
         )
     
     # 生成完整缓存键 - 用于精确匹配

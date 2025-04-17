@@ -22,11 +22,6 @@ def generate_secure_random_string(length):
 
 logger = logging.getLogger('my_logger')
 
-# 是否启用假流式请求 默认启用
-FAKE_STREAMING = os.environ.get("FAKE_STREAMING", "true").lower() in ["true", "1", "yes"]
-# 假流式请求的空内容返回间隔（秒）
-FAKE_STREAMING_INTERVAL = float(os.environ.get("FAKE_STREAMING_INTERVAL", "1"))
-
 @dataclass
 class GeneratedText:
     text: str
@@ -167,7 +162,7 @@ class GeminiClient:
             start_time = time.time()
             while True:
                 yield "\n"
-                await asyncio.sleep(FAKE_STREAMING_INTERVAL)
+                await asyncio.sleep(settings.FAKE_STREAMING_INTERVAL)
                 
                 # 如果等待时间过长（超过300秒），抛出超时异常，让外部处理
                 if time.time() - start_time > 300:

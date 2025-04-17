@@ -119,7 +119,7 @@
     <div class="info-box">
       <div class="section-header">
         <h2 class="section-title">🟢 运行状态</h2>
-        <button class="reset-button" @click="openResetDialog">
+        <button class="reset-button" @click="openResetDialog" v-if="!dashboardStore.status.enableVertex">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
             <path d="M3 3v5h5"></path>
@@ -128,8 +128,14 @@
         </button>
       </div>
       <p class="status">服务运行中</p>
-      
-      <div class="stats-grid">
+      <div class="vertex-notice" v-if="dashboardStore.status.enableVertex">
+        <div class="notice-icon">ℹ️</div>
+        <div class="notice-content">
+          <h3 class="notice-title">Vertex 模式说明</h3>
+          <p class="notice-text">当前项目处于 Vertex 模式，完全基于 gzzhongqi/vertex2openai 项目开发。目前处于初步适配阶段，统计功能正在逐步完善中。</p>
+        </div>
+      </div>
+      <div class="stats-grid" v-if="!dashboardStore.status.enableVertex">
         <div class="stat-card">
           <div class="stat-value">{{ dashboardStore.status.keyCount }}</div>
           <div class="stat-label">可用密钥数量</div>
@@ -144,8 +150,8 @@
         </div>
       </div>
       
-      <h3 class="section-title">API调用统计</h3>
-      <div class="stats-grid">
+      <h3 class="section-title" v-if="!dashboardStore.status.enableVertex">API调用统计</h3>
+      <div class="stats-grid" v-if="!dashboardStore.status.enableVertex">
         <div class="stat-card">
           <div class="stat-value">{{ dashboardStore.status.last24hCalls }}</div>
           <div class="stat-label">24小时调用次数</div>
@@ -185,7 +191,7 @@
         </div>
       </div>
       
-      <div class="api-key-stats-container">
+      <div class="api-key-stats-container" v-if="!dashboardStore.status.enableVertex">
         <h3 class="section-title fold-header" @click="toggleApiKeyStats">
           API密钥使用统计
           <span :class="getFoldIconClass(apiKeyStatsVisible)">
@@ -817,6 +823,79 @@
     .model-progress-container {
       width: 40px;
       height: 4px;
+    }
+  }
+  
+  .vertex-notice {
+    background-color: var(--color-background-soft);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 20px 0;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    border: 1px solid var(--color-border);
+    transition: all 0.3s ease;
+  }
+  
+  .vertex-notice:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .notice-icon {
+    font-size: 24px;
+    background-color: var(--color-background-mute);
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    transition: background-color 0.3s;
+  }
+  
+  .notice-content {
+    flex: 1;
+  }
+  
+  .notice-title {
+    color: var(--color-heading);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    transition: color 0.3s;
+  }
+  
+  .notice-text {
+    color: var(--color-text);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+    transition: color 0.3s;
+  }
+  
+  @media (max-width: 768px) {
+    .vertex-notice {
+      padding: 12px;
+      gap: 12px;
+    }
+    
+    .notice-icon {
+      font-size: 20px;
+      min-width: 32px;
+      height: 32px;
+      padding: 6px;
+    }
+    
+    .notice-title {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    
+    .notice-text {
+      font-size: 12px;
     }
   }
 </style>

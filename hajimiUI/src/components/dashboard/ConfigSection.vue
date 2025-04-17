@@ -149,7 +149,38 @@ watch(() => dashboardStore.isRefreshing, (newValue, oldValue) => {
 
 <template>
   <div class="info-box">
-    <h3 class="section-title fold-header" @click="isExpanded = !isExpanded">
+    <div v-if="dashboardStore.status.enableVertex">
+      <h3 class="section-title">版本信息</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">{{ dashboardStore.config.localVersion }}</div>
+          <div class="stat-label">当前版本</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ dashboardStore.config.remoteVersion }}</div>
+          <div class="stat-label">最新版本</div>
+        </div>
+        <div class="stat-card">
+          <div 
+            class="stat-value" 
+            :class="dashboardStore.config.hasUpdate ? 'update-needed' : 'up-to-date'"
+          >
+            {{ dashboardStore.config.hasUpdate ? "需要更新" : "已是最新" }}
+          </div>
+          <div class="stat-label">更新状态</div>
+        </div>
+      </div>
+    
+      <!-- 项目地址 -->
+      <div class="project-link-container">
+        <a href="https://github.com/wyeeeee/hajimi" target="_blank" rel="noopener noreferrer" class="project-link">
+          <span class="github-icon">🌸</span>
+          <span class="project-text">项目地址：github.com/wyeeeee/hajimi</span>
+          <span class="github-icon">🌸</span>
+        </a>
+      </div>
+    </div>
+    <h3 class="section-title fold-header" @click="isExpanded = !isExpanded" v-if="!dashboardStore.status.enableVertex">
       ⚙️ 环境配置
       <span :class="getFoldIconClass(isExpanded)">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -159,35 +190,37 @@ watch(() => dashboardStore.isRefreshing, (newValue, oldValue) => {
     </h3>
     
     <!-- 默认显示的一行三栏 -->
-    <div class="stats-grid" v-if="!isExpanded">
-      <div class="stat-card">
-        <div class="stat-value">{{ dashboardStore.config.maxRequestsPerMinute }}</div>
-        <div class="stat-label">每分钟请求限制</div>
-        <button class="edit-btn" @click="openEditDialog('maxRequestsPerMinute', dashboardStore.config.maxRequestsPerMinute)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ dashboardStore.config.concurrentRequests }}</div>
-        <div class="stat-label">并发请求数</div>
-        <button class="edit-btn" @click="openEditDialog('concurrentRequests', dashboardStore.config.concurrentRequests)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ dashboardStore.config.currentTime }}</div>
-        <div class="stat-label">当前服务器时间</div>
-      </div>
+<div v-if="!dashboardStore.status.enableVertex">
+  <div class="stats-grid" v-if="!isExpanded" >
+    <div class="stat-card">
+      <div class="stat-value">{{ dashboardStore.config.maxRequestsPerMinute }}</div>
+      <div class="stat-label">每分钟请求限制</div>
+      <button class="edit-btn" @click="openEditDialog('maxRequestsPerMinute', dashboardStore.config.maxRequestsPerMinute)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      </button>
     </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ dashboardStore.config.concurrentRequests }}</div>
+      <div class="stat-label">并发请求数</div>
+      <button class="edit-btn" @click="openEditDialog('concurrentRequests', dashboardStore.config.concurrentRequests)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ dashboardStore.config.currentTime }}</div>
+      <div class="stat-label">当前服务器时间</div>
+    </div>
+  </div>
+</div>
     
     <!-- 展开后显示的所有配置项 -->
-    <transition name="fold">
+    <transition name="fold" v-if="!dashboardStore.status.enableVertex">
       <div v-if="isExpanded" class="fold-content">
         <!-- 基本配置 -->
         <h3 class="section-title">基本配置</h3>
@@ -302,37 +335,38 @@ watch(() => dashboardStore.isRefreshing, (newValue, oldValue) => {
             </button>
           </div>
         </div>
-        
         <!-- 版本信息 -->
-        <h3 class="section-title">版本信息</h3>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value">{{ dashboardStore.config.localVersion }}</div>
-            <div class="stat-label">当前版本</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">{{ dashboardStore.config.remoteVersion }}</div>
-            <div class="stat-label">最新版本</div>
-          </div>
-          <div class="stat-card">
-            <div 
-              class="stat-value" 
-              :class="dashboardStore.config.hasUpdate ? 'update-needed' : 'up-to-date'"
-            >
-              {{ dashboardStore.config.hasUpdate ? "需要更新" : "已是最新" }}
-            </div>
-            <div class="stat-label">更新状态</div>
-          </div>
-        </div>
+<div>
+  <h3 class="section-title">版本信息</h3>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ dashboardStore.config.localVersion }}</div>
+      <div class="stat-label">当前版本</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ dashboardStore.config.remoteVersion }}</div>
+      <div class="stat-label">最新版本</div>
+    </div>
+    <div class="stat-card">
+      <div 
+        class="stat-value" 
+        :class="dashboardStore.config.hasUpdate ? 'update-needed' : 'up-to-date'"
+      >
+        {{ dashboardStore.config.hasUpdate ? "需要更新" : "已是最新" }}
+      </div>
+      <div class="stat-label">更新状态</div>
+    </div>
+  </div>
 
-        <!-- 项目地址 -->
-        <div class="project-link-container">
-          <a href="https://github.com/wyeeeee/hajimi" target="_blank" rel="noopener noreferrer" class="project-link">
-            <span class="github-icon">🌸</span>
-            <span class="project-text">项目地址：github.com/wyeeeee/hajimi</span>
-            <span class="github-icon">🌸</span>
-          </a>
-        </div>
+  <!-- 项目地址 -->
+  <div class="project-link-container">
+    <a href="https://github.com/wyeeeee/hajimi" target="_blank" rel="noopener noreferrer" class="project-link">
+      <span class="github-icon">🌸</span>
+      <span class="project-text">项目地址：github.com/wyeeeee/hajimi</span>
+      <span class="github-icon">🌸</span>
+    </a>
+  </div>
+</div>
       </div>
     </transition>
     

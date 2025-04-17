@@ -12,6 +12,12 @@
 - [HuggingFace单文件部署的使用文档](./wiki/hf-oneclick.md) 感谢[@任梓樂](https://github.com/rzline)编写
 
 ###  更新日志
+* v0.1.4beta
+    * 为大部分配置项适配热更新，可实时调整配置
+    * 前端界面新增适配热更新相关ui界面，可直接调整配置（在前端界面修改的数据在重启后会失效）
+    * 适配 vertex ai（基于gzzhongqi/vertex2openai项目开发），在启用vertex模式并配置vertex凭证后，项目将切换为vertex请求模式
+    * 新增环境变量`ENABLE_VERTEX`用于启用vertex模式，初始默认为false
+    * 新增环境变量`GOOGLE_CREDENTIALS_JSON`用于配置vertex凭证，默认为空
 * v0.1.3
     * 应对谷歌加强封锁紧急更新，优化连接逻辑，减少错误发生
     * 修复了在非流式模式下日志暴露key的问题

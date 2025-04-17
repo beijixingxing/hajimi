@@ -11,7 +11,7 @@ import app.config.settings as settings
 from app.services import GeminiClient
 from app.utils.auth import verify_password
 from app.utils.maintenance import api_call_stats_clean
-
+from app.utils.logging import log
 # 创建路由器
 dashboard_router = APIRouter(prefix="/api", tags=["dashboard"])
 
@@ -172,7 +172,9 @@ async def get_dashboard_data():
         # 添加并发请求配置
         "concurrent_requests": settings.CONCURRENT_REQUESTS,
         "increase_concurrent_on_failure": settings.INCREASE_CONCURRENT_ON_FAILURE,
-        "max_concurrent_requests": settings.MAX_CONCURRENT_REQUESTS
+        "max_concurrent_requests": settings.MAX_CONCURRENT_REQUESTS,
+        #启用vertex
+        "enable_vertex": settings.ENABLE_VERTEX,
     }
 
 @dashboard_router.post("/reset-stats")
@@ -248,6 +250,7 @@ async def update_config(config_data: dict):
                 if value <= 0:
                     raise ValueError("每分钟请求限制必须大于0")
                 settings.MAX_REQUESTS_PER_MINUTE = value
+                log('info', f"每分钟请求限制已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
@@ -257,6 +260,7 @@ async def update_config(config_data: dict):
                 if value <= 0:
                     raise ValueError("每IP每日请求限制必须大于0")
                 settings.MAX_REQUESTS_PER_DAY_PER_IP = value
+                log('info', f"每IP每日请求限制已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
@@ -264,13 +268,14 @@ async def update_config(config_data: dict):
             if not isinstance(config_value, bool):
                 raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
             settings.FAKE_STREAMING = config_value
-            
+            log('info', f"假流式请求已更新为：{config_value}")
         elif config_key == "fake_streaming_interval":
             try:
                 value = float(config_value)
                 if value <= 0:
                     raise ValueError("假流式间隔必须大于0")
                 settings.FAKE_STREAMING_INTERVAL = value
+                log('info', f"假流式间隔已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
@@ -278,13 +283,14 @@ async def update_config(config_data: dict):
             if not isinstance(config_value, bool):
                 raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
             settings.RANDOM_STRING = config_value
-            
+            log('info', f"随机字符串已更新为：{config_value}")
         elif config_key == "random_string_length":
             try:
                 value = int(config_value)
                 if value <= 0:
                     raise ValueError("随机字符串长度必须大于0")
                 settings.RANDOM_STRING_LENGTH = value
+                log('info', f"随机字符串长度已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
@@ -292,13 +298,14 @@ async def update_config(config_data: dict):
             if not isinstance(config_value, bool):
                 raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
             settings.search["search_mode"] = config_value
-            
+            log('info', f"联网搜索模式已更新为：{config_value}")      
         elif config_key == "concurrent_requests":
             try:
                 value = int(config_value)
                 if value <= 0:
                     raise ValueError("并发请求数必须大于0")
                 settings.CONCURRENT_REQUESTS = value
+                log('info', f"并发请求数已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
@@ -308,6 +315,7 @@ async def update_config(config_data: dict):
                 if value < 0:
                     raise ValueError("失败时增加的并发数不能为负数")
                 settings.INCREASE_CONCURRENT_ON_FAILURE = value
+                log('info', f"失败时增加的并发数已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
@@ -317,6 +325,7 @@ async def update_config(config_data: dict):
                 if value <= 0:
                     raise ValueError("最大并发请求数必须大于0")
                 settings.MAX_CONCURRENT_REQUESTS = value
+                log('info', f"最大并发请求数已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 

@@ -42,7 +42,7 @@ async def process_stream_request(
             current_concurrent = len(all_keys)
         
         # 创建一个队列（用于假流式模式的响应内容）
-        response_queue = asyncio.Queue() if FAKE_STREAMING else None
+        response_queue = asyncio.Queue() if settings.FAKE_STREAMING else None
         
         # 将保活消息格式化为SSE格式
         formatted_chunk = {
@@ -55,14 +55,14 @@ async def process_stream_request(
         keep_alive_message=f"data: {json.dumps(formatted_chunk)}\n\n"
         
         # 如果是假流式模式，先发送一次保活消息,以免处理时断联
-        if FAKE_STREAMING :
+        if settings.FAKE_STREAMING :
             try:
                 yield keep_alive_message
             except StopAsyncIteration:
                 pass
         
         # (假流式) 尝试使用不同API密钥，直到所有密钥都尝试过
-        while (all_keys and FAKE_STREAMING):
+        while (all_keys and settings.FAKE_STREAMING):
             # 获取当前批次的密钥
             current_batch = all_keys[:current_concurrent]
             all_keys = all_keys[current_concurrent:]
@@ -96,12 +96,12 @@ async def process_stream_request(
                 # 短时间等待任务完成
                 done, pending = await asyncio.wait(
                     [task for _, task in tasks],
-                    timeout=FAKE_STREAMING_INTERVAL,
+                    timeout=settings.FAKE_STREAMING_INTERVAL,
                     return_when=asyncio.FIRST_COMPLETED
                 )
                 
                 # 如果没有任务完成，发送保活消息
-                if not done and FAKE_STREAMING:
+                if not done and settings.FAKE_STREAMING: 
                     yield keep_alive_message
                     continue
                 
@@ -148,7 +148,7 @@ async def process_stream_request(
                     extra={'request_type': 'stream', 'model': chat_request.model})
 
         # (真流式) 尝试使用不同API密钥，直到所有密钥都尝试过
-        while (all_keys and not FAKE_STREAMING):
+        while (all_keys and not settings.FAKE_STREAMING):
             # 获取密钥
             api_key = all_keys[0]
             all_keys = all_keys[1:]                                  

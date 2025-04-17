@@ -84,7 +84,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
       retryCount: data.retry_count || 0,
       last24hCalls: data.last_24h_calls || 0,
       hourlyCalls: data.hourly_calls || 0,
-      minuteCalls: data.minute_calls || 0
+      minuteCalls: data.minute_calls || 0,
+      enableVertex: data.enable_vertex || false
     }
 
     // 更新配置数据
@@ -102,7 +103,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
       hasUpdate: data.has_update || false,
       concurrentRequests: data.concurrent_requests || 0,
       increaseConcurrentOnFailure: data.increase_concurrent_on_failure || 0,
-      maxConcurrentRequests: data.max_concurrent_requests || 0
+      maxConcurrentRequests: data.max_concurrent_requests || 0,
+      enableVertex: data.enable_vertex || false
     }
 
     // 更新API密钥统计
@@ -145,13 +147,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
   // 更新配置项
   async function updateConfig(key, value, password) {
     try {
+      // 将驼峰命名转换为下划线命名
+      const snakeCaseKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+      
       const response = await fetch('/api/update-config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          key,
+          key: snakeCaseKey,
           value,
           password
         })
