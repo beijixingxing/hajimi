@@ -90,8 +90,22 @@ jobs:
           cp -r /tmp/workflow_backup/workflows/ .github/
           git add .github/workflows/
           git commit -m "恢复工作流文件" || echo "没有工作流文件变更"
+          # 拉取远程最新更改并尝试 fast-forward 合并
+          echo "正在拉取远程分支的最新更改..."
+          git pull --ff-only origin main
+          if [ $? -ne 0 ]; then
+            echo "无法 fast-forward 合并，尝试 rebase..."
+            git fetch origin
+            git rebase origin/main
+          fi
+          # 推送更改
+          echo "正在推送更改到远程分支..."
           git push origin main
-          echo "工作流文件已恢复"
+          if [ $? -ne 0 ]; then
+            echo "推送失败，尝试强制推送..."
+            git push origin main --force-with-lease
+          fi
+          echo "工作流文件已恢复并推送"
 
       # ----------------------------
       # 构建控制逻辑
