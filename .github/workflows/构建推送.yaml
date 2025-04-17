@@ -1,6 +1,7 @@
 name: Docker镜像构建及上游同步
 
 on:
+  # 触发条件配置
   push:
     branches: [main]
     tags: ['v*.*.*']
@@ -11,125 +12,13 @@ on:
 permissions:
   contents: write       # 同步任务需要写权限
 
-# 去掉了sync-fork任务
-# jobs:
-#   sync-fork:
-#     name: 上游仓库同步
-#     runs-on: ubuntu-latest
-#     outputs:
-#       should_build: ${{ steps.build_control.outputs.should_build }}
-#       latest_commit: ${{ steps.get_latest_commit.outputs.commit_hash }}
-
-#     steps:
-#       # ----------------------------
-#       # 仓库准备阶段
-#       # ----------------------------
-#       - name: 检出仓库
-#         uses: actions/checkout@v4
-#         with:
-#           fetch-depth: 0
-#           token: ${{ secrets.GITHUB_TOKEN }}
-
-#       - name: 配置Git身份
-#         run: |
-#           git config user.name "beijixingxing"
-#           git config user.email "yunxi815@gmail.com"
-
-#       # ----------------------------
-#       # 版本检测阶段
-#       # ----------------------------
-#       - name: 备份工作流文件
-#         run: |
-#           mkdir -p /tmp/workflow_backup
-#           cp -r .github/workflows/ /tmp/workflow_backup/
-#           echo "工作流文件已备份"
-
-#       - name: 读取当前版本
-#         id: current_version
-#         run: |
-#           CURRENT_VERSION=$(grep -oP 'version=\K.*' version.txt)
-#           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-#           echo "当前版本: $CURRENT_VERSION"
-
-#       - name: 获取上游版本
-#         id: upstream_version
-#         run: |
-#           UPSTREAM_RAW=$(curl -s https://raw.githubusercontent.com/wyeeeee/hajimi/main/version.txt)
-#           UPSTREAM_VERSION=$(echo "$UPSTREAM_RAW" | grep -oP 'version=\K.*')
-#           echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
-#           echo "上游版本: $UPSTREAM_VERSION"
-
-#       # ----------------------------
-#       # 同步操作阶段
-#       # ----------------------------
-#       - name: 版本比对
-#         id: version_check
-#         run: |
-#           if [ "${{ steps.current_version.outputs.current_version }}" != "${{ steps.upstream_version.outputs.upstream_version }}" ]; then
-#             echo "::notice::检测到版本变更（本地:${{ steps.current_version.outputs.current_version }} 上游:${{ steps.upstream_version.outputs.upstream_version }}）"
-#             echo "need_sync=true" >> $GITHUB_OUTPUT
-#           else
-#             echo "::notice::版本号相同，无需同步"
-#             echo "need_sync=false" >> $GITHUB_OUTPUT
-#           fi
-
-#       - name: 配置上游仓库
-#         if: steps.version_check.outputs.need_sync == 'true'
-#         run: |
-#           git remote add upstream https://github.com/wyeeeee/hajimi.git || true
-#           git fetch upstream
-
-#       - name: 强制同步
-#         if: steps.version_check.outputs.need_sync == 'true'
-#         run: |
-#           git reset --hard upstream/main
-#           echo "已完成代码同步"
-
-#       - name: 恢复工作流文件
-#         if: >
-#           steps.version_check.outputs.need_sync == 'true' &&
-#           steps.version_check.outputs.upstream_version != '' &&
-#           steps.current_version.outputs.current_version != '' &&
-#           steps.version_check.outputs.upstream_version != steps.current_version.outputs.current_version
-#         run: |
-#           cp -r /tmp/workflow_backup/workflows/ .github/
-#           git add .github/workflows/
-#           git commit -m "恢复工作流文件" || echo "没有工作流文件变更"
-#           git push origin main
-#           echo "工作流文件已恢复"
-
-#       - name: 获取最新提交哈希
-#         id: get_latest_commit
-#         if: steps.version_check.outputs.need_sync == 'true'
-#         run: |
-#           LATEST_COMMIT=$(git rev-parse HEAD)
-#           echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
-#           echo "最新提交哈希: $LATEST_COMMIT"
-
-#       # ----------------------------
-#       # 构建控制逻辑
-#       # ----------------------------
-#       - name: 设置构建控制标志
-#         id: build_control
-#         run: |
-#           if [ "${{ steps.version_check.outputs.need_sync }}" == "true" ]; then
-#             echo "should_build=true" >> $GITHUB_OUTPUT
-#           else
-#             echo "should_build=false" >> $GITHUB_OUTPUT
-#           fi
-#           echo "构建标志设置为: ${{ steps.build_control.outputs.should_build }}"
-
-# =================================================================
-# Docker镜像构建任务
-# =================================================================
 jobs:
+  # =================================================================
+  # Docker镜像构建任务
+  # =================================================================
   build-and-push:
     name: 构建推送Docker镜像
-    # 去掉了依赖的同步任务sync-fork
-    # needs: sync-fork
     runs-on: ubuntu-latest
-    # 去掉了根据同步任务结果判断是否执行的条件
-    # if: ${{ needs.sync-fork.outputs.should_build == 'true' }}
     permissions:
       contents: read
       packages: write
@@ -142,26 +31,25 @@ jobs:
 
       - name: 验证同步后版本
         run: |
+          cd src
           echo "当前版本: $(grep -oP 'version=\K.*' version.txt)"
           if [ ! -f version.txt ]; then
             echo "::error::version.txt 文件不存在"
             exit 1
           fi
-
       - name: 读取版本号
         id: version
         run: |
+          cd src
           VERSION=$(grep -oP 'version=\K.*' version.txt)
           echo "version=v$VERSION" >> $GITHUB_OUTPUT
           echo "镜像版本: v$VERSION"
-
       - name: 压缩应用文件
         run: |
           cd src/app
           zip -r ../app.zip *
           echo "压缩包内容预览:"
           unzip -l ../app.zip | head -10
-
       - name: 准备构建上下文
         run: |
           mkdir -p docker_build
@@ -170,7 +58,6 @@ jobs:
           cp src/requirements.txt docker_build/
           cp src/version.txt docker_build/
           echo "构建上下文准备完成"
-
       - name: 配置Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -187,8 +74,7 @@ jobs:
           images: beijixingxing/hajimi
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ steps.version.outputs.version }}
-
+            type=raw,value=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || steps.version.outputs.version }}
       - name: 构建推送镜像
         uses: docker/build-push-action@v5
         with:
@@ -204,5 +90,5 @@ jobs:
       - name: 构建完成通知
         if: ${{ always() }}
         run: |
-          echo "Docker镜像构建推送完成"
-          echo "标签: ${{ steps.tags.outputs.tags }}"
+          echo “Docker镜像构建推送完成”
+          echo “标签： ${{ steps.tags.outputs.tags }}”
