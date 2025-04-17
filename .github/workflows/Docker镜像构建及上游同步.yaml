@@ -90,21 +90,30 @@ jobs:
           cp -r /tmp/workflow_backup/workflows/ .github/
           git add .github/workflows/
           git commit -m "恢复工作流文件" || echo "没有工作流文件变更"
-          # 拉取远程最新更改并尝试 fast-forward 合并
-          echo "正在拉取远程分支的最新更改..."
-          git pull --ff-only origin main
-          if [ $? -ne 0 ]; then
-            echo "无法 fast-forward 合并，尝试 rebase..."
-            git fetch origin
-            git rebase origin/main
+
+          # 尝试合并或 rebase
+          echo "正在尝试拉取远程分支的最新更改..."
+          git fetch origin
+          # 检查是否需要 rebase 或 merge
+          if git merge-base --is-ancestor origin/main main; then
+            echo "本地分支落后于远程分支，尝试 fast-forward 合并..."
+            git pull --ff-only origin main
+          else
+            echo "本地分支与远程分支分叉，尝试 rebase..."
+            git pull --rebase origin main
           fi
+
+          # 如果 rebase 失败，提示用户手动解决冲突
+          if [ $? -ne 0 ]; then
+            echo "::error::Rebase 失败，请手动解决冲突后重试。"
+            exit 1
+          fi
+
           # 推送更改
           echo "正在推送更改到远程分支..."
-          git push origin main
-          if [ $? -ne 0 ]; then
-            echo "推送失败，尝试强制推送..."
-            git push origin main --force-with-lease
-          fi
+          git push origin main || echo "推送失败，尝试强制推送..."
+          git push origin main --force-with-lease || echo "强制推送失败，请检查分支状态。"
+
           echo "工作流文件已恢复并推送"
 
       # ----------------------------
