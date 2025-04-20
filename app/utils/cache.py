@@ -37,11 +37,10 @@ class ResponseCacheManager:
             'response': response,
             'expiry_time': now + self.expiry_time,
             'created_at': now,
-            'client_ip': client_ip
         }
         
         log('info', f"响应已缓存: {cache_key[:8]}...", 
-            extra={'cache_operation': 'store', 'request_type': 'non-stream'})
+            extra={'request_type': 'non-stream'})
         
         # 如果缓存超过限制，清理最旧的
         self.clean_if_needed()
@@ -53,7 +52,7 @@ class ResponseCacheManager:
         
         for key in expired_keys:
             del self.cache[key]
-            log('info', f"清理过期缓存: {key[:8]}...", extra={'cache_operation': 'clean'})
+            log('info', f"清理过期缓存: {key[:8]}...")
     
     def clean_if_needed(self):
         """如果缓存数量超过限制，清理最旧的项目"""
@@ -111,7 +110,6 @@ def cache_response(response, cache_key, client_ip, response_cache_manager, endpo
     参数:
     - response: 响应对象
     - cache_key: 缓存键
-    - client_ip: 客户端IP
     - response_cache_manager: 缓存管理器
     - api_key: API密钥，用于更新API密钥使用统计
     """
@@ -123,8 +121,8 @@ def cache_response(response, cache_key, client_ip, response_cache_manager, endpo
     
     if existing_cache:
         log('info', f"缓存已存在，跳过存储: {cache_key[:8]}...",
-            extra={'cache_operation': 'skip-existing', 'request_type': 'non-stream'})
+            extra={'request_type': 'non-stream'})
     else:
-        response_cache_manager.store(cache_key, response, client_ip)
+        response_cache_manager.store(cache_key, response)
         log('info', f"API响应已缓存: {cache_key[:8]}...",
-            extra={'cache_operation': 'store-new', 'request_type': 'non-stream'})
+            extra={'request_type': 'non-stream'})

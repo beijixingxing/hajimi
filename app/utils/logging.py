@@ -65,8 +65,16 @@ def format_log_message(level, message, extra=None):
     log_manager.add_log(log_entry)
     
     return formatted_log
-
-def log(level: str, message: str, **extra):
-    """简化日志记录的统一函数"""
-    msg = format_log_message(level.upper(), message, extra=extra)
+    
+    
+def log(level: str, message: str, extra: dict = None, **kwargs):
+    final_extra = {}
+    # 如果传递了 extra 字典，先用它作为基础
+    if extra is not None and isinstance(extra, dict):
+        final_extra.update(extra)
+    # 将 kwargs 中的其他关键字参数合并进来，kwargs 会覆盖 extra 中的同名键
+    final_extra.update(kwargs)
+    
+    # 调用 format_log_message，传递合并后的 final_extra 字典
+    msg = format_log_message(level.upper(), message, extra=final_extra)
     getattr(logger, level.lower())(msg)

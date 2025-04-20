@@ -144,6 +144,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
     isDarkMode.value = !isDarkMode.value
   }
 
+  // 切换Vertex AI配置
+  async function toggleVertex() {
+    try {
+      const newValue = !config.value.enableVertex
+      await updateConfig('enableVertex', newValue, '123') // 使用默认密码
+      // 更新本地状态
+      config.value.enableVertex = newValue
+    } catch (error) {
+      console.error('切换Vertex AI失败:', error)
+    }
+  }
+
   // 更新配置项
   async function updateConfig(key, value, password) {
     try {
@@ -187,6 +199,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     setSelectedModel,
     isDarkMode,
     toggleDarkMode,
-    updateConfig
+    updateConfig,
+    toggleVertex
   }
 })

@@ -329,6 +329,12 @@ async def update_config(config_data: dict):
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
                 
+        elif config_key == "enable_vertex":
+            if not isinstance(config_value, bool):
+                raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
+            settings.ENABLE_VERTEX = config_value
+            log('info', f"Vertex AI 已更新为：{config_value}")
+                
         else:
             raise HTTPException(status_code=400, detail=f"不支持的配置项：{config_key}")
         

@@ -17,6 +17,9 @@ class ChatCompletionRequest(BaseModel):
     max_tokens: Optional[int] = None
     presence_penalty: Optional[float] = 0.0
     frequency_penalty: Optional[float] = 0.0
+    seed: Optional[int] = None
+    logprobs: Optional[int] = None
+    response_logprobs: Optional[bool] = None
 
 class Choice(BaseModel):
     index: int

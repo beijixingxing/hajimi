@@ -2,17 +2,8 @@
 
 ## 1. 安装
 ### 1.1 下载
-- 从[releases](https://github.com/wyeeeee/hajimi/releases)下载最新版本。
-- 下载完成后解压到任意目录。
-
-    * 解压后目录结构如下：
-    * 注意，在以下内容中，不需要解压app.zip
-    ```
-    app.zip
-    Dockerfile
-    requirements.txt
-    version.txt
-    ```
+- 从[releases](https://github.com/wyeeeee/hajimi/releases/tag/sp)下载单文件特别版的Dockerfile。
+- 下载后应只有一个Dockerfile文件，且名称只能为Dockerfile，不能存在任何的后缀（如.bin）。
 
 
 ### 1.2 使用huggingface space部署项目
@@ -21,8 +12,8 @@
 - 注册完成后，进入[spaces](https://huggingface.co/spaces)，如图所示，点击new spaces。<br> 注意：<br>![spaces](./img/spaces.png)
 - 如图所示，填入创建选项，填写完成后，点击create space，一定要记住owner与space name，在之后的酒馆连接中要使用<br> 注意：pace name不要使用任何标点符号<br>![create_space](./img/create_space.png)
 - 如图所示，选择upload files<br>![files](./img/files.png)
-- 如图所示，将1.1下载并解压的文件全部拖入，上传完成后点击Commit changes to main<br> 注意：要将app.zip，Dockerfile等内容一起拖入上传，而不是上传包裹它们的外部文件夹<br>![upload_files](./img/upload_files.png)
-
+- 如图所示，将1.1下载Dockerfile拖入，上传完成后点击Commit changes to main<br>![upload_files](./img/upload_files.png)
+- 检查上传的Dockerfile有没有lfs字样，<br>![LFS](./img/LFS.jpg)如果有，删掉文件重新上传或者重新下载后上传。
 
 ## 2. 配置
 ### 2.0 什么是环境变量？
@@ -77,7 +68,7 @@
 
 ## 4. 更新
 ### 4.1 更新方法
-- 只需按照 1.1下载最新版，接着参照2.1中的上传文件，在您的space中重新上传文件，文件会自动覆盖并更新<br>注意：无需删除原始文件，无需删除space，只需重新上传文件即可
+- 在单文件版本中，更新只需要在相应的huggingface space的settings中选择Factory rebuild，在rebuild完成后系统会自动更新到最新版
 
 ## 5. 注意事项
 ### 5.1 假流式传输模式说明

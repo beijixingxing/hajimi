@@ -4,16 +4,17 @@ from app.models import ChatCompletionRequest, ChatCompletionResponse, ErrorRespo
 from app.services import GeminiClient
 from app.utils import protect_from_abuse,generate_cache_key
 from .stream_handlers import process_stream_request
+from .nonstream_handlers import process_request
 from app.models.schemas import ChatCompletionResponse, Choice, Message 
-
+from app.vertex.vertex import list_models as list_models_vertex
 import app.config.settings as settings
 import asyncio
 import time
 from app.utils.logging import log
+from typing import Optional
 
 # 导入拆分后的模块
 from .auth import verify_password
-from .request_handlers import process_request
 
 # 创建路由器
 router = APIRouter()
@@ -67,17 +68,63 @@ async def custom_verify_password(request: Request):
     await verify_password(request, settings.PASSWORD)
 
 # API路由
-@router.get("/v1/models", response_model=ModelList)
-def list_models():
-    log('info', "Received request to list models", extra={'request_type': 'list_models', 'status_code': 200})
-    filtered_models = [model for model in GeminiClient.AVAILABLE_MODELS if model not in settings.BLOCKED_MODELS]
-    return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in filtered_models])
+@router.get("/v1/models",response_model=ModelList)
+async def list_models():
+    if settings.ENABLE_VERTEX:
+        # 使用Vertex AI实现
+        from app.vertex.vertex import list_models as vertex_list_models
+        
+        # 调用Vertex AI实现
+        vertex_response = await vertex_list_models(api_key=current_api_key)
+        
+        # 转换为ModelList格式
+        return ModelList(data=vertex_response.get("data", []))
+    else:
+        # 使用原有的Gemini实现
+        filtered_models = [model for model in GeminiClient.AVAILABLE_MODELS if model not in settings.BLOCKED_MODELS]
+        return ModelList(data=[{"id": model, "object": "model", "created": 1678888888, "owned_by": "organization-owner"} for model in filtered_models])
 
 @router.post("/v1/chat/completions", response_model=ChatCompletionResponse)
 async def chat_completions(request: ChatCompletionRequest, http_request: Request, _: None = Depends(custom_verify_password)):
     """处理API请求的主函数，根据需要处理流式或非流式请求"""
     global current_api_key
     
+    # 根据环境变量选择使用哪个实现
+    if settings.ENABLE_VERTEX:
+        # 使用Vertex AI实现
+        from app.vertex.vertex import chat_completions as vertex_chat_completions
+        from app.vertex.vertex import OpenAIRequest, OpenAIMessage, get_api_key
+        
+        # 转换消息格式
+        openai_messages = []
+        for message in request.messages:
+            openai_messages.append(OpenAIMessage(
+                role=message.role,
+                content=message.content
+            ))
+        
+        # 转换请求格式
+        vertex_request = OpenAIRequest(
+            model=request.model,
+            messages=openai_messages,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            stream=request.stream,
+            stop=request.stop,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            seed=getattr(request, 'seed', None),
+            logprobs=getattr(request, 'logprobs', None),
+            response_logprobs=getattr(request, 'response_logprobs', None),
+            n=request.n
+        )
+        
+        # 调用Vertex AI实现
+        return await vertex_chat_completions(vertex_request, api_key=current_api_key)
+    
+    # 使用原有的Gemini实现
     # 获取客户端IP
     client_ip = http_request.client.host if http_request.client else "unknown"
     # 请求前基本检查
@@ -109,14 +156,14 @@ async def chat_completions(request: ChatCompletionRequest, http_request: Request
     
     # 记录请求缓存键信息
     log('info', f"请求缓存键: {cache_key[:8]}...", 
-        extra={'cache_key': cache_key[:8], 'request_type': 'non-stream'})
+        extra={'request_type': 'non-stream', 'model': request.model})
     
     # 检查精确缓存是否存在且未过期
     cached_response, cache_hit = response_cache_manager.get(cache_key)
     if cache_hit:
         # 精确缓存命中
-        log('info', f"精确缓存命中: {cache_key[:8]}...", 
-            extra={'cache_operation': 'hit', 'request_type': 'non-stream'})
+        log('info', f"缓存命中: {cache_key[:8]}...", 
+            extra={'request_type': 'non-stream', 'model': request.model})
         
         # 同时清理相关的活跃任务，避免后续请求等待已经不需要的任务
         active_requests_manager.remove_by_prefix(f"cache:{cache_key}")
@@ -125,7 +172,7 @@ async def chat_completions(request: ChatCompletionRequest, http_request: Request
         if cache_key in response_cache_manager.cache:
             del response_cache_manager.cache[cache_key]
             log('info', f"缓存使用后已删除: {cache_key[:8]}...", 
-                extra={'cache_operation': 'used-and-removed', 'request_type': 'non-stream'})
+                extra={'request_type': 'non-stream', 'model': request.model})
         
         # 返回缓存响应
         return cached_response

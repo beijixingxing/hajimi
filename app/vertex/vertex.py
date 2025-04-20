@@ -19,6 +19,7 @@ from fastapi import APIRouter
 from google.genai import types
 from app.utils.logging import log
 from google import genai
+import app.config.settings as settings
 
 client = None
 router = APIRouter()
@@ -178,7 +179,7 @@ def init_vertex_ai():
     global client # Ensure we modify the global client variable
     try:
         # Priority 1: Check for credentials JSON content in environment variable (Hugging Face)
-        credentials_json_str = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        credentials_json_str = settings.GOOGLE_CREDENTIALS_JSON
         if credentials_json_str:
             try:
                 # Try to parse the JSON
@@ -195,7 +196,7 @@ def init_vertex_ai():
                         # print(f"ERROR: Missing required fields in credentials JSON: {missing_fields}") # Removed
                         raise ValueError(f"Credentials JSON 缺少必需字段: {missing_fields}")
                 except json.JSONDecodeError as json_err:
-                    log('error', f"ERROR: 无法将 GOOGLE_CREDENTIALS_JSON 解析为 JSON: {json_err}")
+                    log('error', f"vertex: 无法将 GOOGLE_CREDENTIALS_JSON 解析为 JSON: {json_err}")
                     raise
 
                 # Create credentials from the parsed JSON info (json.loads should handle \n)
@@ -208,7 +209,7 @@ def init_vertex_ai():
                     project_id = credentials.project_id
                     log('info', f"成功创建凭证对象用于项目: {project_id}")
                 except Exception as cred_err:
-                    log('error', f"ERROR: 无法从服务账户信息创建凭证: {cred_err}")
+                    log('error', f"vertex: 无法从服务账户信息创建凭证: {cred_err}")
                     raise
                 
                 # Initialize the client with the credentials
@@ -216,11 +217,11 @@ def init_vertex_ai():
                     client = genai.Client(vertexai=True, credentials=credentials, project=project_id, location="us-central1")
                     log('info', f"使用 GOOGLE_CREDENTIALS_JSON 环境变量初始化 Vertex AI 用于项目: {project_id}")
                 except Exception as client_err:
-                    log('error', f"ERROR: 无法初始化 genai.Client: {client_err}")
+                    log('error', f"vertex: 无法初始化 genai.Client: {client_err}")
                     raise
                 return True
             except Exception as e:
-                log('error', f"从 GOOGLE_CREDENTIALS_JSON 加载凭证时发生错误: {e}")
+                log('error', f"vertex：从 GOOGLE_CREDENTIALS_JSON 加载凭证时发生错误: {e}")
                 # 如果这里失败，继续尝试其他方法
 
         # Priority 2: Try to use the credential manager to get credentials from files
@@ -233,7 +234,7 @@ def init_vertex_ai():
                 log('info', f"使用凭证管理器初始化 Vertex AI 用于项目: {project_id}")
                 return True
             except Exception as e:
-                log('error', f"ERROR: 无法从凭证管理器初始化 client: {e}")
+                log('error', f"vertex: 无法从凭证管理器初始化 client: {e}")
         
         # Priority 3: Fall back to GOOGLE_APPLICATION_CREDENTIALS environment variable (file path)
         file_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
@@ -254,17 +255,17 @@ def init_vertex_ai():
                         log('info', f"Initialized Vertex AI using GOOGLE_APPLICATION_CREDENTIALS file path for project: {project_id}")
                         return True
                     except Exception as client_err:
-                        log('error', f"ERROR: 无法从文件初始化 client: {client_err}")
+                        log('error', f"vertex: 无法从文件初始化 client: {client_err}")
                 except Exception as e:
-                    log('error', f"ERROR: 从 GOOGLE_APPLICATION_CREDENTIALS 路径 {file_path} 加载凭证时发生错误: {e}")
+                    log('error', f"vertex: 从 GOOGLE_APPLICATION_CREDENTIALS 路径 {file_path} 加载凭证时发生错误: {e}")
             else:
-                log('error', f"ERROR: GOOGLE_APPLICATION_CREDENTIALS 文件不存在于路径: {file_path}")
+                log('error', f"vertex: GOOGLE_APPLICATION_CREDENTIALS 文件不存在于路径: {file_path}")
         
         # 如果没有任何方法成功
-        log('error', f"ERROR: 没有找到有效的凭证。尝试了 GOOGLE_CREDENTIALS_JSON, 凭证管理器 ({credential_manager.credentials_dir}), 和 GOOGLE_APPLICATION_CREDENTIALS.")
+        log('error', f"vertex: 没有找到有效的凭证。尝试了 GOOGLE_CREDENTIALS_JSON, 凭证管理器 ({credential_manager.credentials_dir}), 和 GOOGLE_APPLICATION_CREDENTIALS.")
         return False
     except Exception as e:
-        log('error', f"初始化认证时发生错误: {e}")
+        log('error', f"vertex: 初始化认证时发生错误，如果您不使用Vertex，请忽略这些错误: {e}")
         return False
 
 
@@ -655,12 +656,6 @@ def create_generation_config(request: OpenAIRequest) -> Dict[str, Any]:
     if request.stop is not None:
         config["stop_sequences"] = request.stop
     
-    # Additional parameters with direct mappings
-    if request.presence_penalty is not None:
-        config["presence_penalty"] = request.presence_penalty
-    
-    if request.frequency_penalty is not None:
-        config["frequency_penalty"] = request.frequency_penalty
     
     if request.seed is not None:
         config["seed"] = request.seed
@@ -791,9 +786,9 @@ def create_final_chunk(model: str, response_id: str, candidate_count: int = 1) -
     
     return f"data: {json.dumps(final_chunk)}\n\n"
 
-# /v1/models endpoint
-@router.get("/v1/models")
-async def list_models(api_key: str = Depends(get_api_key)):
+
+async def list_models(api_key: Optional[str] = None):
+        
     # Based on current information for Vertex AI models
     models = [
         {
@@ -914,6 +909,42 @@ async def list_models(api_key: str = Depends(get_api_key)):
             "parent": None,
         },
         {
+             "id": "gemini-2.5-flash-preview-04-17",
+             "object": "model",
+             "created": int(time.time()),
+             "owned_by": "google",
+             "permission": [],
+             "root": "gemini-2.5-flash-preview-04-17",
+             "parent": None,
+         },
+         {
+              "id": "gemini-2.5-flash-preview-04-17-encrypt",
+              "object": "model",
+              "created": int(time.time()),
+              "owned_by": "google",
+              "permission": [],
+              "root": "gemini-2.5-flash-preview-04-17",
+              "parent": None,
+         },
+         {
+              "id": "gemini-2.5-flash-preview-04-17-nothinking",
+              "object": "model",
+              "created": int(time.time()),
+              "owned_by": "google",
+              "permission": [],
+              "root": "gemini-2.5-flash-preview-04-17",
+              "parent": None,
+         },
+         {
+              "id": "gemini-2.5-flash-preview-04-17-max",
+              "object": "model",
+              "created": int(time.time()),
+              "owned_by": "google",
+              "permission": [],
+              "root": "gemini-2.5-flash-preview-04-17",
+              "parent": None,
+         },
+        {
             "id": "gemini-1.5-flash",
             "object": "model",
             "created": int(time.time()),
@@ -983,9 +1014,10 @@ def create_openai_error_response(status_code: int, message: str, error_type: str
         }
     }
 
-@router.post("/v1/chat/completions")
-async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_api_key)):
+
+async def chat_completions(request: OpenAIRequest, api_key: Optional[str] = None):
     try:
+            
         # Validate model availability
         models_response = await list_models()
         available_models = [model["id"] for model in models_response.get("data", [])]
@@ -999,13 +1031,30 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
         is_auto_model = request.model.endswith("-auto")
         is_grounded_search = request.model.endswith("-search")
         is_encrypted_model = request.model.endswith("-encrypt")
-
+        is_nothinking_model = request.model.endswith("-nothinking")
+        is_max_thinking_model = request.model.endswith("-max")
         if is_auto_model:
             base_model_name = request.model.replace("-auto", "")
         elif is_grounded_search:
             base_model_name = request.model.replace("-search", "")
         elif is_encrypted_model:
             base_model_name = request.model.replace("-encrypt", "")
+        elif is_nothinking_model:
+              base_model_name = request.model.replace("-nothinking","")
+              # Specific check for the flash model requiring budget
+              if base_model_name != "gemini-2.5-flash-preview-04-17":
+                  error_response = create_openai_error_response(
+                      400, f"Model '{request.model}' does not support -nothinking variant", "invalid_request_error"
+                  )
+                  return JSONResponse(status_code=400, content=error_response)
+        elif is_max_thinking_model:
+              base_model_name = request.model.replace("-max","")
+              # Specific check for the flash model requiring budget
+              if base_model_name != "gemini-2.5-flash-preview-04-17":
+                  error_response = create_openai_error_response(
+                      400, f"Model '{request.model}' does not support -max variant", "invalid_request_error"
+                  )
+                  return JSONResponse(status_code=400, content=error_response)
         else:
             base_model_name = request.model
 
@@ -1108,46 +1157,100 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
             if request.stream:
                 # Streaming call
                 response_id = f"chatcmpl-{int(time.time())}"
-                candidate_count = request.n or 1
                 
-                async def stream_generator_inner():
-                    all_chunks_empty = True # Track if we receive any content
-                    first_chunk_received = False
-                    try:
-                        for candidate_index in range(candidate_count):
-                            log('info', f"向 Gemini API 发送流式请求 (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
-                            responses = client.models.generate_content_stream(
-                                model=model_name,
-                                contents=prompt,
-                                config=current_gen_config,
-                            )
+                if settings.FAKE_STREAMING:
+                    async def stream_generator_inner():
+                        async def generator():
+                            try:
+                                log('info', f"向 Gemini API 发送请求 (Model: {model_name}, Prompt Format: {prompt_func.__name__}), Fake streaming ({settings.FAKE_STREAMING_INTERVAL})")
+                                response = await client.aio.models.generate_content(
+                                    model=model_name,
+                                    contents=prompt,
+                                    config=current_gen_config,
+                                )
+                                if not is_response_valid(response):
+                                    raise ValueError("Invalid or empty response received") # Trigger retry
+                                
+                                return convert_to_openai_format(response, request.model)
+                            except Exception as generate_error:
+                                error_msg = f"生成内容时发生错误 (Model: {model_name}, Format: {prompt_func.__name__}): {str(generate_error)}"
+                                log('error', error_msg)
+                                # 引发错误以信号失败以进行重试逻辑
+                                raise generate_error
+                        
+                        generate = asyncio.create_task(generator(), name="generate_content")
+                        timeout = asyncio.create_task(asyncio.sleep(300), name="timeout")
+                        try:
+                            is_done = False
+                            while not is_done:
+                                done_tasks, _ = await asyncio.wait({ generate, timeout }, return_when=asyncio.FIRST_COMPLETED, timeout=settings.FAKE_STREAMING_INTERVAL)
+                                if not done_tasks:
+                                    yield convert_chunk_to_openai({}, request.model, response_id, 0)
+                                for done in done_tasks:
+                                    if is_done:
+                                        break
+                                    match done.get_name():
+                                        case "timeout":
+                                            generate.cancel()
+                                            raise TimeoutError("Stream timed out")
+                                        case "generate_content":
+                                            for choice in done.result()["choices"]:
+                                                class Chunk:
+                                                    text = choice["message"]["content"]
+                                                    logprobs = choice.get("logprobs", None)
+                                                yield convert_chunk_to_openai(Chunk(), request.model, response_id, choice["index"])
+                                            yield "data: [DONE]\n\n"
+                                            is_done = True
+                                        case _:
+                                            raise ValueError("Unknown task type received")
+                        except Exception as stream_error:
+                            error_msg = f"Error during streaming (Model: {model_name}, Format: {prompt_func.__name__}): {str(stream_error)}"
+                            print(error_msg)
+                            # Yield error in SSE format but also raise to signal failure
+                            error_response_content = create_openai_error_response(500, error_msg, "server_error")
+                            yield f"data: {json.dumps(error_response_content)}\n\n"
+                            yield "data: [DONE]\n\n"
+                            raise stream_error # Propagate error for retry logic
+                else:
+                    candidate_count = request.n or 1
+                    async def stream_generator_inner():
+                        all_chunks_empty = True # Track if we receive any content
+                        first_chunk_received = False
+                        try:
+                            for candidate_index in range(candidate_count):
+                                log('info', f"向 Gemini API 发送流式请求 (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
+                                responses = await client.aio.models.generate_content_stream(
+                                    model=model_name,
+                                    contents=prompt,
+                                    config=current_gen_config,
+                                )
+                                
+                                # typing hint 写错了，只有1层coro
+                                async for chunk in responses:
+                                    first_chunk_received = True
+                                    if hasattr(chunk, 'text') and chunk.text:
+                                        all_chunks_empty = False
+                                    yield convert_chunk_to_openai(chunk, request.model, response_id, candidate_index)
                             
-                            # Use regular for loop, not async for
-                            for chunk in responses:
-                                first_chunk_received = True
-                                if hasattr(chunk, 'text') and chunk.text:
-                                    all_chunks_empty = False
-                                yield convert_chunk_to_openai(chunk, request.model, response_id, candidate_index)
-                        
-                        # Check if any chunk was received at all
-                        if not first_chunk_received:
-                             raise ValueError("Stream connection established but no chunks received")
+                            # Check if any chunk was received at all
+                            if not first_chunk_received:
+                                raise ValueError("Stream connection established but no chunks received")
 
-                        yield create_final_chunk(request.model, response_id, candidate_count)
-                        yield "data: [DONE]\n\n"
-                        
-                        # Return status based on content received
-                        if all_chunks_empty and first_chunk_received: # Check if we got chunks but they were all empty
-                            raise ValueError("Streamed response contained only empty chunks") # Treat empty stream as failure for retry
+                            yield create_final_chunk(request.model, response_id, candidate_count)
+                            yield "data: [DONE]\n\n"
+                            
+                            # Return status based on content received
+                            if all_chunks_empty and first_chunk_received: # Check if we got chunks but they were all empty
+                                raise ValueError("Streamed response contained only empty chunks") # Treat empty stream as failure for retry
 
-                    except Exception as stream_error:
-                        error_msg = f"Error during streaming (Model: {model_name}, Format: {prompt_func.__name__}): {str(stream_error)}"
-                        print(error_msg)
-                        # Yield error in SSE format but also raise to signal failure
-                        error_response_content = create_openai_error_response(500, error_msg, "server_error")
-                        yield f"data: {json.dumps(error_response_content)}\n\n"
-                        yield "data: [DONE]\n\n"
-                        raise stream_error # Propagate error for retry logic
+                        except Exception as stream_error:
+                            error_msg = f"Error during streaming (Model: {model_name}, Format: {prompt_func.__name__}): {str(stream_error)}"
+                            print(error_msg)
+                            # Yield error in SSE format but also raise to signal failure
+                            error_response_content = create_openai_error_response(500, error_msg, "server_error")
+                            yield f"data: {json.dumps(error_response_content)}\n\n"
+                            yield "data: [DONE]\n\n"
+                            raise stream_error # Propagate error for retry logic
                 
                 return StreamingResponse(stream_generator_inner(), media_type="text/event-stream")
 
@@ -1155,7 +1258,7 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                 # Non-streaming call
                 try:
                     log('info', f"向 Gemini API 发送请求 (Model: {model_name}, Prompt Format: {prompt_func.__name__})")
-                    response = client.models.generate_content(
+                    response = await client.aio.models.generate_content(
                         model=model_name,
                         contents=prompt,
                         config=current_gen_config,
@@ -1268,7 +1371,17 @@ async def chat_completions(request: OpenAIRequest, api_key: str = Depends(get_ap
                 ]
 
                 current_config["system_instruction"] = encryption_instructions
-
+            elif is_nothinking_model:
+                 print(f"Using no thinking budget for model: {request.model}")
+                 current_config["thinking_config"] = {"thinking_budget": 0}
+ 
+            elif is_max_thinking_model:
+                 print(f"Using max thinking budget for model: {request.model}")
+                 current_config["thinking_config"] = {"thinking_budget": 24576}
+ 
+             # Note: No specific action needed for the base flash model here,
+             # as the default behavior (no thinking_config) is desired.
+ 
             try:
                 result = await make_gemini_call(current_model_name, current_prompt_func, current_config)
                 return result
