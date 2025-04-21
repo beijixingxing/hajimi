@@ -1,91 +1,68 @@
 # 使用 Docker 部署 Gemini 轮询魔改版教程 由 **北极星星** 编写
 
-## 一、准备工作
+> # Gemini魔改轮询部署教程-答疑区
+> ## 相关资源链接
+> - [原抱脸部署教程Discord](https://discordapp.com/channels/1134557553011998840/1356195012831875203)
+> - [配置文件下载](https://discord.com/channels/1134557553011998840/1358123054307217485/1363527369284911224)
+> 
+> ## 本地部署（桌面版）
+> ### 准备工作
+> 安装Docker：从[官方下载](https://www.docker.com/)并按提示完成安装。
+> ### 3步快速部署
+> 1. **创建项目文件夹**
+>     - Mac/Linux：在终端执行`mkdir ~/Desktop/hajimi-app`
+>     - Windows：在命令提示符或PowerShell执行`mkdir C:\Users\<用户名>\Desktop\hajimi-app`（替换`<用户名>`）
+> 2. **配置环境变量(.env)**：在`hajimi-app`文件夹创建.env文件，内容如下
+> ```env
+> GEMINI_API_KEYS = key1,key2,key3 #替换为真实密钥，用逗号分隔
+> PASSWORD = your_login_password #设置登录密码
+> ```
+> 3. **修改端口/代理及并发请求配置(docker-compose.yaml)**：在`hajimi-app`文件夹找到该文件按需修改
+> ```yaml
+> ports:
+>   - "7860:7860" #端口冲突时改左侧端口
+> environment:
+>   #HTTP_PROXY: "http://localhost:7890"  #取消注释启用代理
+>   #HTTPS_PROXY: "http://localhost:7890"
+>   CONCURRENT_REQUESTS: 2 #默认并发请求数，按需修改次数。
+>   INCREASE_CONCURRENT_ON_FAILURE: 1 #失败时增加的并发数，按需修改次数。
+>   MAX_CONCURRENT_REQUESTS: 5 #最大并发请求数，按需修改次数。
+> ```
+> ### 启动服务
+> 在终端执行
+> ```bash
+> cd ~/Desktop/hajimi-app 
+> docker-compose up -d 
+> ```
+> 访问`http://localhost:7860`
+> 
+> ## 服务器部署（SSH版）
+> 1. 用SSH工具连接到服务器
+> 2. 执行`mkdir -p /volume1/docker/hajimi-app && cd $_` 创建并进入目录（改成自己的文件夹路径）
+> 3. 上传.env和docker-compose.yaml配置文件后执行`docker-compose up -d`启动服务 **（配置文件修改同桌面版一致）** 
 
-### 1.1 下载项目
+> ## Compose部署（NAS版）
+> 1.在docker文件夹内创建hajimi文件夹
+> 2.上传.env和docker-compose.yaml配置文件 **（配置文件修改同桌面版一致）** 
+> 3.进入Compose选择hajimi文件夹导入docker-compose.yaml
+文件点击部署并运行
 
-从 releases 下载最新版本，并解压到任意目录。
-
-### 1.2 配置环境变量
-
-在项目根目录下创建 `.env` 文件，配置必要环境变量，示例如下：
-
-```
-GEMINI_API_KEYS=key1,key2,key3
-PASSWORD=your_password
-TZ=Asia/Shanghai
-```
-
-按需修改上述值，注意⚠️key必须使用英文逗号间隔。
-
-## 二、构建并运行 Docker 容器
-
-### 2.1 构建镜像
-
-在项目根目录打开终端，执行命令构建 Docker 镜像：
-
-```bash
-cd 项目文件夹完整路径（例如：cd /volume3/docker/hagemi）
-docker build -t hajimi-app .
-```
-
-此过程可能需一些时间，取决于网络和系统性能。
-
-### 2.2 运行容器
-
-镜像构建完成后，执行命令启动 Docker 容器，如端口被占用需修改左侧端口号：
-
-```bash
-docker run -d -p 7860:7860 --env-file .env hajimi-app
-```
-
-## 三、验证部署
-
-### 3.1 检查容器状态
-
-打开 docker 查看 hajimi-app 容器运行状态，确认正常启动。
-
-### 3.2 访问应用
-
-打开浏览器，访问 http://localhost:7860，若看到应用界面，则部署成功。
-
-API 地址：http://localhost:7860/v1  
-key：PASSWORD=your_password
-
-## 四、容器更新
-
-### 4.1 更新脚本
-
-将下面 gemini_docker_update.sh 脚本按需修改保存为一个 .sh 文件：
-
-```bash
-# 停止容器
-docker stop hajimi-app
-# 删除容器
-docker rm hajimi-app
-# 进入项目所在目录
-cd /volume3/docker/hagemi
-# 使用以下命令拉取最新代码
-git pull origin main
-# 构建新的 Docker 镜像
-docker build -t hajimi-app .
-# 运行新容器
-docker run -d -p 7860:7860 --env-file .env hajimi-app
-# 查看容器状态
-docker ps -a | grep hajimi-app    
-```
-
-### 4.2 脚本存放位置
-
-把 gemini_docker_update.sh 脚本存放在项目根目录，例如项目文件路径是 /volume3/docker/hagemi，便将脚本存放在 /volume3/docker/hagemi。
-
-### 4.3 执行更新
-
-进入终端输入命令，执行更新脚本：
-
-```bash
-cd /volume3/docker/hagemi
-./gemini_docker_update.sh
-```
-
-通过以上步骤，即可使用 Docker 成功部署 Gemini 轮询魔改版应用。
+**登录`http://localhost:7860`验证，正常则通过`http://<服务器IP>:7860`（替换IP）外网访问**
+> 
+> ## 常见问题
+> ### Q1:端口冲突
+> - Mac/Linux：`lsof -i :7860`
+> - Windows：`netstat -ano | findstr "7860"`
+> **解决方案**：修改`docker-compose.yaml`中的`7860`为其他端口，如`17860`
+> ### Q2:代理设置
+> - 不需要代理：删除或注释`HTTP_PROXY`相关配置
+> - 需要修改：替换为实际代理地址，如`http://192.168.1.100:8080`
+> 
+> ## 更新指南
+```进入项目文件夹，根据需求在SSH终端输入下面指令：
+#从 Docker 镜像仓库拉取最新的镜像，更新到最新版本
+docker-compose pull
+#管理的所有容器，完成更新部署
+docker-compose up -d```
+> ```
+> **提示**：首次部署用默认配置，稳定后再调整参数。
