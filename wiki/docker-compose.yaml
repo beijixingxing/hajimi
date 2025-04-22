@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  hajimi-app:
+    image: beijixingxing/hajimi:latest
+    container_name: hajimi-app  # 固定容器名方便监控
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"  # 启用自动更新
+    ports:
+      - "7860:7860"  # 左边是外部端口（可改），右边是容器端口（别动）
+    env_file:
+      - .env  
+    environment:
+      - TZ=Asia/Shanghai # 中国时区
+      - HTTP_PROXY=http://127.0.0.1:7890  # 代理地址，自行修改）
+      - HTTPS_PROXY=http://127.0.0.1:7890  # 同上，保持一样就行
+    restart: unless-stopped # 自动重启，但手动停止后不再重启
+
+  # 🆙 自动更新监控服务（默认每小时检查一次）
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # 必须的Docker连接配置
+    environment:
+      - TZ=Asia/Shanghai # 中国时区
+      - WATCHTOWER_LABEL_ENABLE=true  # 只监控带更新标签的容器
+      - WATCHTOWER_POLL_INTERVAL=3600  # 检查间隔秒数（3600=1小时）
+      - WATCHTOWER_CLEANUP=true  # 更新后自动删除旧镜像
+    command: --interval 3600  # 双重确认间隔时间
+    restart: unless-stopped # 自动重启，但手动停止后不再重启
