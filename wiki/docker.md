@@ -18,7 +18,7 @@
 > GEMINI_API_KEYS = key1,key2,key3 #替换为真实密钥，用逗号分隔
 > PASSWORD = your_login_password # 设置登录密码
 > ```
-> 3. **修改端口/代理及并发请求配置(docker-compose.yaml)**：在`hajimi-app`文件夹找到该文件按需修改
+> 3. **修改端口/代理及并发请求配置**：在`hajimi-app`文件夹打开docker-compose.yaml文件按需修改
 > ```yaml
 > ports:
 >   - "7860:7860" #端口冲突时改左侧端口
