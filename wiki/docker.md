@@ -1,7 +1,7 @@
 # 使用 Docker 部署 Gemini 轮询魔改版教程 由 **北极星星** 编写
 
 > # docker部署教程
-> - [配置文件下载]([https://discord.com/channels/1134557553011998840/1358123054307217485/1363527369284911224](https://github.com/beijixingxing/hajimi/releases/download/%E6%96%87%E4%BB%B6/docker.zip))
+> - [配置文件下载](https://github.com/beijixingxing/hajimi/releases/download/%E6%96%87%E4%BB%B6/docker.zip)
 > 
 > ## 本地部署（桌面版）
 > ### 准备工作
