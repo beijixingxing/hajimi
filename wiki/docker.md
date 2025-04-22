@@ -10,7 +10,8 @@
 > 1. **创建项目文件夹**
 >     - Mac/Linux：在终端执行`mkdir ~/Desktop/hajimi-app`
 >     - Windows：在命令提示符或PowerShell执行`mkdir C:\Users\<用户名>\Desktop\hajimi-app`（替换`<用户名>`）
-> 2. **配置环境变量(.env)**：在`hajimi-app`文件夹创建.env文件，内容如下
+>     - **也可直接在桌面创建hajimi-app文件夹，将下载后的配置文件解压，上传到hajimi文件夹中**
+> 2. **配置环境变量(.env)**：修改`hajimi-app`文件夹.env文件，主要修改以下内容
 > ```env
 > GEMINI_API_KEYS = key1,key2,key3 #替换为真实密钥，用逗号分隔
 > PASSWORD = your_login_password #设置登录密码
@@ -20,14 +21,16 @@
 > ports:
 >   - "7860:7860" #端口冲突时改左侧端口
 > environment:
->   #HTTP_PROXY: "http://localhost:7890"  #取消注释启用代理
->   #HTTPS_PROXY: "http://localhost:7890"
+>   #HTTP_PROXY: "http://127.0.0.1:7890"  #取消注释启用代理
+>   #HTTPS_PROXY: "http://127.0.0.1:7890"
 >   CONCURRENT_REQUESTS: 2 #默认并发请求数，按需修改次数。
->   INCREASE_CONCURRENT_ON_FAILURE: 1 #失败时增加的并发数，按需修改次数。
->   MAX_CONCURRENT_REQUESTS: 5 #最大并发请求数，按需修改次数。
+# 启用vertex
+>   ENABLE_VERTEX=true 
+# 填入完整的Google凭证JSON，注意填写进英文分号中间。
+>   GOOGLE_CREDENTIALS_JSON='json密钥' 
 > ```
 > ### 启动服务
-> 在终端执行
+> 在终端执行（修改成自己的文件夹路径）
 > ```bash
 > cd ~/Desktop/hajimi-app 
 > docker-compose up -d 
@@ -36,7 +39,7 @@
 > 
 > ## 服务器部署（SSH版）
 > 1. 用SSH工具连接到服务器
-> 2. 执行`mkdir -p /volume1/docker/hajimi-app && cd $_` 创建并进入目录（改成自己的文件夹路径）
+> 2. 执行`mkdir -p /volume1/docker/hajimi-app && cd $_` 创建并进入目录（改成自己的文件夹路径，也可直接创建）
 > 3. 上传.env和docker-compose.yaml配置文件后执行`docker-compose up -d`启动服务 **（配置文件修改同桌面版一致）** 
 
 > ## Compose部署（NAS版）
@@ -56,11 +59,19 @@
 > - 不需要代理：删除或注释`HTTP_PROXY`相关配置
 > - 需要修改：替换为实际代理地址，如`http://192.168.1.100:8080`
 > 
-> ## 更新指南
-```进入项目文件夹，根据需求在SSH终端输入下面指令：
-#从 Docker 镜像仓库拉取最新的镜像，更新到最新版本
+> ## 更新指南（修改成自己的文件夹路径）
+> docker-compose.yaml文件内置自动更新容器
+> 手动更新如下：
+```进入 docker-compose.yaml 所在目录
+cd /volume3/docker/hajimi
+
+# 停止并删除容器、网络等资源，同时删除所有相关镜像
+docker-compose down --rmi all
+
+# 拉取最新镜像（此时已清除旧镜像）
 docker-compose pull
-#管理的所有容器，完成更新部署
+
+# 重新创建容器并启动
 docker-compose up -d```
 > ```
 > **提示**：首次部署用默认配置，稳定后再调整参数。
