@@ -14,22 +14,21 @@
 > 2. **配置环境变量(.env)**：修改`hajimi-app`文件夹.env文件，主要修改以下内容
 > ```env
 > GEMINI_API_KEYS = key1,key2,key3 #替换为真实密钥，用逗号分隔
-> PASSWORD = your_login_password #设置登录密码
+> PASSWORD = your_login_password # 设置登录密码
 > ```
 > 3. **修改端口/代理及并发请求配置(docker-compose.yaml)**：在`hajimi-app`文件夹找到该文件按需修改
 > ```yaml
 > ports:
 >   - "7860:7860" #端口冲突时改左侧端口
 > environment:
->   #HTTP_PROXY: "http://127.0.0.1:7890"  #取消注释启用代理
->   #HTTPS_PROXY: "http://127.0.0.1:7890"
->   CONCURRENT_REQUESTS: 2 #默认并发请求数，按需修改次数。
-# 启用vertex
+>  HTTP_PROXY: "http://127.0.0.1:7890" # 启用代理，按需修改
+>  HTTPS_PROXY: "http://127.0.0.1:7890" # 启用代理，按需修改
+### 启用vertex
 >   ENABLE_VERTEX=true 
-# 填入完整的Google凭证JSON，注意填写进英文分号中间。
+>   填入完整的Google凭证JSON，注意填写进英文分号中间。
 >   GOOGLE_CREDENTIALS_JSON='json密钥' 
 > ```
-> ### 启动服务
+ ### 启动服务
 > 在终端执行（修改成自己的文件夹路径）
 > ```bash
 > cd ~/Desktop/hajimi-app 
