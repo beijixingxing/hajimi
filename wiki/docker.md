@@ -1,4 +1,4 @@
-# 使用 Docker 部署 Gemini 轮询魔改版教程 由 **北极星星** 编写
+# 使用 Docker 部署 Gemini 轮询魔改版教程 由 **https://github.com/beijixingxing** 编写
 
 > # docker部署教程
 > - ## [docker配置文件下载下载](https://github.com/beijixingxing/hajimi/releases/download/%E6%96%87%E4%BB%B6/docker.zip)
@@ -59,6 +59,7 @@
 > 
 ## 更新指南
 ### docker-compose.yaml文件已内置自动更新容器，默认每一小时检测一次，有更新会自动更新。
+
 ### 手动更新如下（文件夹路径修改成自己的）：
 ```进入 docker-compose.yaml 所在目录
 cd /volume3/docker/hajimi
