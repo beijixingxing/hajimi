@@ -3,7 +3,7 @@
 > # docker部署教程
 > - ## [docker配置文件下载下载](https://github.com/beijixingxing/hajimi/releases/download/%E6%96%87%E4%BB%B6/docker.zip)
 > - ## [.env文件下载](https://github.com/beijixingxing/hajimi/blob/main/wiki/.env)
-> - ## [docker-compose.yaml文件下载](https://github.com/beijixingxing/hajimi/blob/main/wiki/docker-compose.yaml)
+> - ## [docker-compose.yaml文件下载](blob:https://github.com/edda798c-a748-4a91-be31-48bcd0d138e9)
 > 
 > ## 本地部署（桌面版）
 > ### 准备工作
