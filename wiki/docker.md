@@ -63,7 +63,8 @@
 ### docker-compose.yaml文件已内置自动更新容器，默认每一小时检测一次，有更新会自动更新。
 
 ### 手动更新如下（文件夹路径修改成自己的）：
-```# 进入 docker-compose.yaml 所在目录
+```
+# 进入 docker-compose.yaml 所在目录
 cd /volume3/docker/hajimi
 
 # 停止并删除容器、网络等资源，同时删除所有相关镜像
